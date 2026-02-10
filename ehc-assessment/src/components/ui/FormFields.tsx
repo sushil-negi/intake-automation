@@ -152,37 +152,66 @@ export function SectionHeader({ title, subtitle }: SectionHeaderProps) {
 interface ThreeWayToggleProps {
   label: string;
   value: 'yes' | 'no' | 'na' | '';
+  note?: string;
+  concernAnswer?: 'yes' | 'no';
   onChange: (value: 'yes' | 'no' | 'na') => void;
+  onNoteChange?: (note: string) => void;
 }
 
-export function ThreeWayToggle({ label, value, onChange }: ThreeWayToggleProps) {
+export function ThreeWayToggle({ label, value, note = '', concernAnswer = 'no', onChange, onNoteChange }: ThreeWayToggleProps) {
+  // Determine button colors based on which answer is the "concern" answer
+  const yesColor = concernAnswer === 'yes' ? 'red' : 'green';
+  const noColor = concernAnswer === 'yes' ? 'green' : 'red';
+
+  const isConcern = value !== '' && value !== 'na' && value === concernAnswer;
+
+  function activeStyle(color: string) {
+    if (color === 'green') return 'bg-green-100 text-green-700 border-2 border-green-400';
+    if (color === 'red') return 'bg-red-100 text-red-700 border-2 border-red-400';
+    return 'bg-gray-200 text-gray-600 border-2 border-gray-400';
+  }
+
   return (
-    <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0 gap-4">
-      <span className="text-sm text-gray-700 flex-1">{label}</span>
-      <div className="flex gap-1 flex-shrink-0">
-        {([
-          { val: 'yes' as const, label: 'Yes', color: 'green' },
-          { val: 'no' as const, label: 'No', color: 'red' },
-          { val: 'na' as const, label: 'N/A', color: 'gray' },
-        ]).map(opt => (
-          <button
-            key={opt.val}
-            type="button"
-            onClick={() => onChange(opt.val)}
-            className={`px-2.5 py-1.5 rounded text-xs font-medium min-w-[40px] min-h-[36px] transition-all cursor-pointer
-              ${value === opt.val
-                ? opt.color === 'green'
-                  ? 'bg-green-100 text-green-700 border-2 border-green-400'
-                  : opt.color === 'red'
-                  ? 'bg-red-100 text-red-700 border-2 border-red-400'
-                  : 'bg-gray-200 text-gray-600 border-2 border-gray-400'
-                : 'bg-white text-gray-400 border border-gray-200 hover:bg-gray-50'
-              }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+    <div className={`py-2 border-b border-gray-100 last:border-b-0 ${isConcern ? 'bg-red-50/50 -mx-2 px-2 rounded' : ''}`}>
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-sm text-gray-700 flex-1">
+          {label}
+          {isConcern && <span className="ml-1.5 text-red-500 text-xs font-medium" title="Flagged concern">&#9888;</span>}
+        </span>
+        <div className="flex gap-1 flex-shrink-0">
+          {([
+            { val: 'yes' as const, label: 'Yes', color: yesColor },
+            { val: 'no' as const, label: 'No', color: noColor },
+            { val: 'na' as const, label: 'N/A', color: 'gray' },
+          ]).map(opt => (
+            <button
+              key={opt.val}
+              type="button"
+              onClick={() => onChange(opt.val)}
+              className={`px-2.5 py-1.5 rounded text-xs font-medium min-w-[40px] min-h-[36px] transition-all cursor-pointer
+                ${value === opt.val
+                  ? activeStyle(opt.color)
+                  : 'bg-white text-gray-400 border border-gray-200 hover:bg-gray-50'
+                }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
+      {isConcern && onNoteChange && (
+        <div className="mt-2 ml-0 sm:ml-4">
+          <input
+            type="text"
+            value={note}
+            onChange={e => onNoteChange(e.target.value)}
+            placeholder="Add details for this concern..."
+            className="w-full px-3 py-2 text-sm border border-red-200 rounded-lg bg-red-50 text-gray-800
+              focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-transparent
+              placeholder:text-red-300 min-h-[40px]"
+          />
+        </div>
+      )}
     </div>
   );
 }

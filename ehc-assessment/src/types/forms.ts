@@ -116,21 +116,26 @@ export interface ClientAssessmentData {
 
 export type SafetyAnswer = 'yes' | 'no' | 'na' | '';
 
+export interface SafetyItem {
+  answer: SafetyAnswer;
+  note: string;
+}
+
 export interface HomeSafetyChecklistData {
   clientName: string;
   date: string;
   clientAddress: string;
-  entrance: Record<string, SafetyAnswer>;
-  general: Record<string, SafetyAnswer>;
-  medications: Record<string, SafetyAnswer>;
-  medicalEquipment: Record<string, SafetyAnswer>;
-  livingAreas: Record<string, SafetyAnswer>;
-  bathroom: Record<string, SafetyAnswer>;
-  bedroom: Record<string, SafetyAnswer>;
-  kitchen: Record<string, SafetyAnswer>;
-  lighting: Record<string, SafetyAnswer>;
-  security: Record<string, SafetyAnswer>;
-  ancillaryServices: Record<string, SafetyAnswer>;
+  entrance: Record<string, SafetyItem>;
+  general: Record<string, SafetyItem>;
+  medications: Record<string, SafetyItem>;
+  medicalEquipment: Record<string, SafetyItem>;
+  livingAreas: Record<string, SafetyItem>;
+  bathroom: Record<string, SafetyItem>;
+  bedroom: Record<string, SafetyItem>;
+  kitchen: Record<string, SafetyItem>;
+  lighting: Record<string, SafetyItem>;
+  security: Record<string, SafetyItem>;
+  ancillaryServices: Record<string, SafetyItem>;
   comments: string;
   itemsNeedingAttention: string;
 }
