@@ -172,12 +172,8 @@ export interface ConsentData {
   clientAddress: string;
   age: string;
   signerName: string;
-  ehcStaffName: string;
-  ehcStaffSignature: string;
   hipaaSignature: string;
   hipaaSignatureDate: string;
-  benefitsSignature: string;
-  benefitsSignatureDate: string;
 }
 
 export interface AssessmentFormData {

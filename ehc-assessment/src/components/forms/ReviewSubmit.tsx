@@ -70,7 +70,7 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
   const hasAssessment = allCategoriesSelected.length > 0;
   const hasMeds = medicationList.noMedications || medicationList.medications.some(m => m.name);
   const hasSafetySignatures = !!homeSafetyChecklist.clientSignature && !!homeSafetyChecklist.representativeSignature;
-  const hasConsentSignatures = !!consent.hipaaSignature && !!consent.benefitsSignature;
+  const hasConsentSignatures = !!consent.hipaaSignature;
 
   const incomplete: { label: string; step: number }[] = [];
   if (!hasClientInfo) incomplete.push({ label: 'Client Info', step: STEP.helpList });
@@ -190,15 +190,6 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${consent.hipaaSignature ? 'bg-green-500' : 'bg-red-400'}`} />
           <span>HIPAA Acknowledgment: {consent.hipaaSignature ? 'Signed' : 'Not signed'}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`w-3 h-3 rounded-full ${consent.benefitsSignature ? 'bg-green-500' : 'bg-red-400'}`} />
-          <span>Assignment of Benefits: {consent.benefitsSignature ? 'Signed' : 'Not signed'}</span>
-        </div>
-        <Field label="EHC Staff" value={consent.ehcStaffName} />
-        <div className="flex items-center gap-2">
-          <span className={`w-3 h-3 rounded-full ${consent.ehcStaffSignature ? 'bg-green-500' : 'bg-red-400'}`} />
-          <span className="text-xs">EHC Staff signature: {consent.ehcStaffSignature ? 'Signed' : 'Not signed'}</span>
         </div>
       </ReviewSection>
 

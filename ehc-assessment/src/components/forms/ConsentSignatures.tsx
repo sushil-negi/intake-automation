@@ -11,7 +11,7 @@ export function ConsentSignatures({ data, onChange }: Props) {
   return (
     <div className="space-y-6 pt-4">
       {/* Client banner — auto-populated from Step 1 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-3 sm:gap-x-6 gap-y-1 text-sm">
         <span><span className="text-gray-500">Client:</span> <span className="font-medium text-gray-900">{data.clientName || '—'}</span></span>
         <span><span className="text-gray-500">Age:</span> <span className="font-medium text-gray-900">{data.age || '—'}</span></span>
         <span><span className="text-gray-500">Address:</span> <span className="font-medium text-gray-900">{data.clientAddress || '—'}</span></span>
@@ -58,43 +58,6 @@ export function ConsentSignatures({ data, onChange }: Props) {
         type="date"
         value={data.hipaaSignatureDate}
         onChange={e => onChange({ hipaaSignatureDate: e.target.value })}
-      />
-
-      {/* Assignment of Benefits */}
-      <SectionHeader title="Assignment of Benefits" />
-
-      <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed">
-        <p>
-          <strong>Assignment of Insurance Benefits:</strong> I hereby authorize payment directly
-          to Executive Home Care (EHC), on any and all insurance benefits for services otherwise
-          payable to or on behalf of the client-consumer or to me, and authorize release of
-          information requested by the client-consumer's insurance company(ies).
-        </p>
-      </div>
-
-      <SignaturePad
-        label="Signature of Client/Consumer or Personal Representative"
-        value={data.benefitsSignature}
-        onChange={val => onChange({ benefitsSignature: val })}
-      />
-      <TextInput
-        label="Date"
-        type="date"
-        value={data.benefitsSignatureDate}
-        onChange={e => onChange({ benefitsSignatureDate: e.target.value })}
-      />
-
-      <SectionHeader title="EHC Staff Acknowledgment" />
-      <TextInput
-        label="EHC Staff Name"
-        value={data.ehcStaffName}
-        onChange={e => onChange({ ehcStaffName: e.target.value })}
-        placeholder="Full name of EHC staff member"
-      />
-      <SignaturePad
-        label="EHC Staff Signature"
-        value={data.ehcStaffSignature}
-        onChange={val => onChange({ ehcStaffSignature: val })}
       />
     </div>
   );

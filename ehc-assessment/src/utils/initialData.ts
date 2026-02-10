@@ -149,11 +149,7 @@ export const INITIAL_DATA: AssessmentFormData = {
     clientAddress: '',
     age: '',
     signerName: '',
-    ehcStaffName: '',
-    ehcStaffSignature: '',
     hipaaSignature: '',
     hipaaSignatureDate: new Date().toISOString().split('T')[0],
-    benefitsSignature: '',
-    benefitsSignatureDate: new Date().toISOString().split('T')[0],
   },
 };
