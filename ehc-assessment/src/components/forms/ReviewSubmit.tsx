@@ -196,6 +196,10 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
           <span>Assignment of Benefits: {consent.benefitsSignature ? 'Signed' : 'Not signed'}</span>
         </div>
         <Field label="EHC Staff" value={consent.ehcStaffName} />
+        <div className="flex items-center gap-2">
+          <span className={`w-3 h-3 rounded-full ${consent.ehcStaffSignature ? 'bg-green-500' : 'bg-red-400'}`} />
+          <span className="text-xs">EHC Staff signature: {consent.ehcStaffSignature ? 'Signed' : 'Not signed'}</span>
+        </div>
       </ReviewSection>
 
       {/* Submit */}

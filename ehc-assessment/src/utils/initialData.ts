@@ -113,6 +113,7 @@ export const INITIAL_DATA: AssessmentFormData = {
     clientName: '',
     date: new Date().toISOString().split('T')[0],
     clientAddress: '',
+    age: '',
     entrance: {},
     general: {},
     medications: {},
@@ -130,7 +131,6 @@ export const INITIAL_DATA: AssessmentFormData = {
     ehcStaffName: '',
     clientSignature: '',
     representativeSignature: '',
-    representativeName: '',
   },
   medicationList: {
     clientName: '',
@@ -150,6 +150,7 @@ export const INITIAL_DATA: AssessmentFormData = {
     age: '',
     signerName: '',
     ehcStaffName: '',
+    ehcStaffSignature: '',
     hipaaSignature: '',
     hipaaSignatureDate: new Date().toISOString().split('T')[0],
     benefitsSignature: '',

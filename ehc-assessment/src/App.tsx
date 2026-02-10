@@ -66,8 +66,8 @@ function App() {
     }
 
     // Sync to homeSafetyChecklist
-    if (data.homeSafetyChecklist.clientName !== clientName || data.homeSafetyChecklist.date !== date || data.homeSafetyChecklist.clientAddress !== clientAddress) {
-      updates.homeSafetyChecklist = { ...data.homeSafetyChecklist, clientName, date, clientAddress };
+    if (data.homeSafetyChecklist.clientName !== clientName || data.homeSafetyChecklist.date !== date || data.homeSafetyChecklist.clientAddress !== clientAddress || data.homeSafetyChecklist.age !== age) {
+      updates.homeSafetyChecklist = { ...data.homeSafetyChecklist, clientName, date, clientAddress, age };
       needsUpdate = true;
     }
 

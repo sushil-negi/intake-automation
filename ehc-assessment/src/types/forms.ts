@@ -128,6 +128,7 @@ export interface HomeSafetyChecklistData {
   clientName: string;
   date: string;
   clientAddress: string;
+  age: string;
   entrance: Record<string, SafetyItem>;
   general: Record<string, SafetyItem>;
   medications: Record<string, SafetyItem>;
@@ -145,7 +146,6 @@ export interface HomeSafetyChecklistData {
   ehcStaffName: string;
   clientSignature: string;
   representativeSignature: string;
-  representativeName: string;
 }
 
 export interface Medication {
@@ -173,6 +173,7 @@ export interface ConsentData {
   age: string;
   signerName: string;
   ehcStaffName: string;
+  ehcStaffSignature: string;
   hipaaSignature: string;
   hipaaSignatureDate: string;
   benefitsSignature: string;

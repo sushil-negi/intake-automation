@@ -91,6 +91,11 @@ export function ConsentSignatures({ data, onChange }: Props) {
         onChange={e => onChange({ ehcStaffName: e.target.value })}
         placeholder="Full name of EHC staff member"
       />
+      <SignaturePad
+        label="EHC Staff Signature"
+        value={data.ehcStaffSignature}
+        onChange={val => onChange({ ehcStaffSignature: val })}
+      />
     </div>
   );
 }
