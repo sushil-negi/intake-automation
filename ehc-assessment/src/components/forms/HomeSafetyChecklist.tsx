@@ -363,14 +363,6 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
         );
       })}
 
-      <SectionHeader title="Comments" />
-      <TextArea
-        label="Comments"
-        value={data.comments}
-        onChange={e => onChange({ comments: e.target.value })}
-        rows={4}
-      />
-
       <SectionHeader title="Office Use" subtitle="Auto-generated recommendations based on flagged concerns" />
       {(() => {
         // Collect all flagged items with their recommendations
@@ -438,9 +430,17 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
       })()}
 
       <TextArea
+        label="Comments"
+        value={data.comments}
+        onChange={e => onChange({ comments: e.target.value })}
+        placeholder="General comments about the home safety assessment..."
+        rows={3}
+      />
+      <TextArea
         label="Additional notes"
         value={data.itemsNeedingAttention}
         onChange={e => onChange({ itemsNeedingAttention: e.target.value })}
+        placeholder="Use 'Copy to Notes' above to auto-fill, or type manually..."
         rows={4}
       />
     </div>
