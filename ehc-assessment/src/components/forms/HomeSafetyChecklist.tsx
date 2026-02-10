@@ -288,8 +288,8 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
       {/* Client banner — auto-populated from Step 1 */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
         <span><span className="text-gray-500">Client:</span> <span className="font-medium text-gray-900">{data.clientName || '—'}</span></span>
-        <span><span className="text-gray-500">Date:</span> <span className="font-medium text-gray-900">{data.date || '—'}</span></span>
         <span><span className="text-gray-500">Address:</span> <span className="font-medium text-gray-900">{data.clientAddress || '—'}</span></span>
+        <span><span className="text-gray-500">Assessment Date:</span> <span className="font-medium text-gray-900">{data.date || '—'}</span></span>
       </div>
 
       <p className="text-sm text-gray-500 italic bg-yellow-50 rounded-lg p-3 border border-yellow-200">
