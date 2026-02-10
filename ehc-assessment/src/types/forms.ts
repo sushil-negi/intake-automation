@@ -138,6 +138,9 @@ export interface HomeSafetyChecklistData {
   ancillaryServices: Record<string, SafetyItem>;
   comments: string;
   itemsNeedingAttention: string;
+  clientSignature: string;
+  representativeSignature: string;
+  representativeName: string;
 }
 
 export interface Medication {

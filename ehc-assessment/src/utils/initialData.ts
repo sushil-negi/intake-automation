@@ -123,6 +123,9 @@ export const INITIAL_DATA: AssessmentFormData = {
     ancillaryServices: {},
     comments: '',
     itemsNeedingAttention: '',
+    clientSignature: '',
+    representativeSignature: '',
+    representativeName: '',
   },
   medicationList: {
     clientName: '',

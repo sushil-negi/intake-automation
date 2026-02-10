@@ -1,4 +1,5 @@
-import { TextArea, SectionHeader, ThreeWayToggle } from '../ui/FormFields';
+import { TextInput, TextArea, SectionHeader, ThreeWayToggle } from '../ui/FormFields';
+import { SignaturePad } from '../ui/SignaturePad';
 import type { HomeSafetyChecklistData, SafetyAnswer, SafetyItem } from '../../types/forms';
 
 interface Props {
@@ -430,19 +431,34 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
       })()}
 
       <TextArea
-        label="Comments"
-        value={data.comments}
-        onChange={e => onChange({ comments: e.target.value })}
-        placeholder="General comments about the home safety assessment..."
-        rows={3}
-      />
-      <TextArea
-        label="Additional notes"
+        label="Comments & Notes"
         value={data.itemsNeedingAttention}
         onChange={e => onChange({ itemsNeedingAttention: e.target.value })}
-        placeholder="Use 'Copy to Notes' above to auto-fill, or type manually..."
+        placeholder="Use 'Copy to Notes' above to auto-fill, or add comments manually..."
         rows={4}
       />
+
+      <SectionHeader title="Signatures" subtitle="Client and EHC representative acknowledgement" />
+      <div className="space-y-6">
+        <SignaturePad
+          label="Client / Consumer Signature"
+          value={data.clientSignature}
+          onChange={val => onChange({ clientSignature: val })}
+        />
+        <div className="space-y-4">
+          <TextInput
+            label="EHC Representative Name"
+            value={data.representativeName}
+            onChange={e => onChange({ representativeName: e.target.value })}
+            placeholder="Full name of assessor"
+          />
+          <SignaturePad
+            label="EHC Representative Signature"
+            value={data.representativeSignature}
+            onChange={val => onChange({ representativeSignature: val })}
+          />
+        </div>
+      </div>
     </div>
   );
 }
