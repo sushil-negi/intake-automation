@@ -48,14 +48,14 @@ function App() {
     const updates: Partial<AssessmentFormData> = {};
 
     // Sync to clientHistory
-    if (data.clientHistory.clientName !== clientName || data.clientHistory.date !== date || data.clientHistory.age !== age) {
-      updates.clientHistory = { ...data.clientHistory, clientName, date, age };
+    if (data.clientHistory.clientName !== clientName || data.clientHistory.date !== date || data.clientHistory.age !== age || data.clientHistory.clientAddress !== clientAddress) {
+      updates.clientHistory = { ...data.clientHistory, clientName, date, age, clientAddress };
       needsUpdate = true;
     }
 
     // Sync to clientAssessment
-    if (data.clientAssessment.clientName !== clientName || data.clientAssessment.date !== date) {
-      updates.clientAssessment = { ...data.clientAssessment, clientName, date };
+    if (data.clientAssessment.clientName !== clientName || data.clientAssessment.date !== date || data.clientAssessment.age !== age || data.clientAssessment.clientAddress !== clientAddress) {
+      updates.clientAssessment = { ...data.clientAssessment, clientName, date, age, clientAddress };
       needsUpdate = true;
     }
 

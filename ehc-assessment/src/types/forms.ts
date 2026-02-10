@@ -42,6 +42,7 @@ export interface ClientHistoryData {
   clientName: string;
   date: string;
   age: string;
+  clientAddress: string;
   assessmentReason: 'initial' | '90day' | '';
   reAssessmentReasons: string[];
   reAssessmentOtherReason: string;
@@ -94,6 +95,8 @@ export interface ClientHistoryData {
 export interface ClientAssessmentData {
   clientName: string;
   date: string;
+  age: string;
+  clientAddress: string;
   assessmentType: 'initial' | 'revised' | '';
   revisedDate: string;
   bathing: string[];

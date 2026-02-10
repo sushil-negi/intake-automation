@@ -30,6 +30,7 @@ export const INITIAL_DATA: AssessmentFormData = {
     clientName: '',
     date: new Date().toISOString().split('T')[0],
     age: '',
+    clientAddress: '',
     assessmentReason: '',
     reAssessmentReasons: [],
     reAssessmentOtherReason: '',
@@ -87,6 +88,8 @@ export const INITIAL_DATA: AssessmentFormData = {
   clientAssessment: {
     clientName: '',
     date: new Date().toISOString().split('T')[0],
+    age: '',
+    clientAddress: '',
     assessmentType: '',
     revisedDate: '',
     bathing: [],
