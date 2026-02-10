@@ -138,6 +138,8 @@ export interface HomeSafetyChecklistData {
   ancillaryServices: Record<string, SafetyItem>;
   comments: string;
   itemsNeedingAttention: string;
+  signerName: string;
+  ehcStaffName: string;
   clientSignature: string;
   representativeSignature: string;
   representativeName: string;
@@ -153,12 +155,21 @@ export interface Medication {
 
 export interface MedicationListData {
   clientName: string;
+  date: string;
+  clientAddress: string;
+  age: string;
   medicationAllergies: string;
   medications: Medication[];
   noMedications: boolean;
 }
 
 export interface ConsentData {
+  clientName: string;
+  date: string;
+  clientAddress: string;
+  age: string;
+  signerName: string;
+  ehcStaffName: string;
   hipaaSignature: string;
   hipaaSignatureDate: string;
   benefitsSignature: string;

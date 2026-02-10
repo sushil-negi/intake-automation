@@ -285,10 +285,13 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
 
   return (
     <div className="space-y-6 pt-4">
-      {/* Client banner — auto-populated from Step 1 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+      {/* Client banner — auto-populated from Step 1, date is editable */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
         <span><span className="text-gray-500">Client:</span> <span className="font-medium text-gray-900">{data.clientName || '—'}</span></span>
-        <span><span className="text-gray-500">Date:</span> <span className="font-medium text-gray-900">{data.date || '—'}</span></span>
+        <span className="flex items-center gap-1">
+          <span className="text-gray-500">Date:</span>
+          <input type="date" value={data.date} onChange={e => onChange({ date: e.target.value })} className="bg-white border border-amber-300 rounded px-2 py-0.5 text-sm font-medium text-gray-900 focus:outline-none focus:ring-1 focus:ring-amber-400" />
+        </span>
         <span><span className="text-gray-500">Address:</span> <span className="font-medium text-gray-900">{data.clientAddress || '—'}</span></span>
       </div>
 
@@ -447,17 +450,25 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
 
       <SectionHeader title="Signatures" subtitle="Client and EHC representative acknowledgement" />
       <div className="space-y-6">
-        <SignaturePad
-          label="Client / Consumer Signature"
-          value={data.clientSignature}
-          onChange={val => onChange({ clientSignature: val })}
-        />
         <div className="space-y-4">
           <TextInput
-            label="EHC Representative Name"
-            value={data.representativeName}
-            onChange={e => onChange({ representativeName: e.target.value })}
-            placeholder="Full name of assessor"
+            label="Signing Party Full Name"
+            value={data.signerName}
+            onChange={e => onChange({ signerName: e.target.value })}
+            placeholder="Full name of client/consumer or personal representative"
+          />
+          <SignaturePad
+            label="Client / Consumer Signature"
+            value={data.clientSignature}
+            onChange={val => onChange({ clientSignature: val })}
+          />
+        </div>
+        <div className="space-y-4">
+          <TextInput
+            label="EHC Staff Name"
+            value={data.ehcStaffName}
+            onChange={e => onChange({ ehcStaffName: e.target.value })}
+            placeholder="Full name of EHC staff member"
           />
           <SignaturePad
             label="EHC Representative Signature"

@@ -60,14 +60,20 @@ function App() {
     }
 
     // Sync to medicationList
-    if (data.medicationList.clientName !== clientName) {
-      updates.medicationList = { ...data.medicationList, clientName };
+    if (data.medicationList.clientName !== clientName || data.medicationList.date !== date || data.medicationList.clientAddress !== clientAddress || data.medicationList.age !== age) {
+      updates.medicationList = { ...data.medicationList, clientName, date, clientAddress, age };
       needsUpdate = true;
     }
 
     // Sync to homeSafetyChecklist
     if (data.homeSafetyChecklist.clientName !== clientName || data.homeSafetyChecklist.date !== date || data.homeSafetyChecklist.clientAddress !== clientAddress) {
       updates.homeSafetyChecklist = { ...data.homeSafetyChecklist, clientName, date, clientAddress };
+      needsUpdate = true;
+    }
+
+    // Sync to consent
+    if (data.consent.clientName !== clientName || data.consent.date !== date || data.consent.clientAddress !== clientAddress || data.consent.age !== age) {
+      updates.consent = { ...data.consent, clientName, date, clientAddress, age };
       needsUpdate = true;
     }
 

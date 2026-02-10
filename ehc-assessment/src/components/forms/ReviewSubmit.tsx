@@ -172,18 +172,21 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
       {/* Home Safety (now step 4) */}
       <ReviewSection title="Home Safety Checklist" stepIndex={STEP.safety} onEdit={onGoToStep} status={hasSafetySignatures ? 'complete' : 'warning'}>
         <p className="text-gray-500 text-xs">Safety checklist completed</p>
+        <Field label="Signing Party" value={homeSafetyChecklist.signerName} />
         <div className="flex items-center gap-2 mt-1">
           <span className={`w-3 h-3 rounded-full ${homeSafetyChecklist.clientSignature ? 'bg-green-500' : 'bg-red-400'}`} />
           <span className="text-xs">Client signature: {homeSafetyChecklist.clientSignature ? 'Signed' : 'Not signed'}</span>
         </div>
+        <Field label="EHC Staff" value={homeSafetyChecklist.ehcStaffName} />
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${homeSafetyChecklist.representativeSignature ? 'bg-green-500' : 'bg-red-400'}`} />
-          <span className="text-xs">Representative signature: {homeSafetyChecklist.representativeSignature ? 'Signed' : 'Not signed'}</span>
+          <span className="text-xs">EHC Staff signature: {homeSafetyChecklist.representativeSignature ? 'Signed' : 'Not signed'}</span>
         </div>
       </ReviewSection>
 
       {/* Consent (step 5) */}
       <ReviewSection title="Consent & Signatures" stepIndex={STEP.consent} onEdit={onGoToStep} status={hasConsentSignatures ? 'complete' : 'incomplete'}>
+        <Field label="Signing Party" value={consent.signerName} />
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${consent.hipaaSignature ? 'bg-green-500' : 'bg-red-400'}`} />
           <span>HIPAA Acknowledgment: {consent.hipaaSignature ? 'Signed' : 'Not signed'}</span>
@@ -192,6 +195,7 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
           <span className={`w-3 h-3 rounded-full ${consent.benefitsSignature ? 'bg-green-500' : 'bg-red-400'}`} />
           <span>Assignment of Benefits: {consent.benefitsSignature ? 'Signed' : 'Not signed'}</span>
         </div>
+        <Field label="EHC Staff" value={consent.ehcStaffName} />
       </ReviewSection>
 
       {/* Submit */}
