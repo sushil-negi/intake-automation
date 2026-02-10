@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { WizardShell } from './components/wizard/WizardShell';
 import { useFormWizard } from './hooks/useFormWizard';
 import { useAutoSave } from './hooks/useAutoSave';
@@ -11,19 +12,69 @@ import { ConsentSignatures } from './components/forms/ConsentSignatures';
 import { ReviewSubmit } from './components/forms/ReviewSubmit';
 import type { AssessmentFormData } from './types/forms';
 
+// Medications before Home Safety so signing forms (Safety + Consent) are grouped at end
 const STEPS = [
   { id: 'help-list', title: 'Client Help List', shortTitle: 'Client Info' },
   { id: 'history', title: 'Client History', shortTitle: 'History' },
   { id: 'assessment', title: 'Client Assessment', shortTitle: 'Assessment' },
-  { id: 'safety', title: 'Home Safety Checklist', shortTitle: 'Safety' },
   { id: 'medications', title: 'Medication List', shortTitle: 'Medications' },
+  { id: 'safety', title: 'Home Safety Checklist', shortTitle: 'Safety' },
   { id: 'consent', title: 'Consent & Signatures', shortTitle: 'Consent' },
   { id: 'review', title: 'Review & Submit', shortTitle: 'Review' },
 ];
 
+function calculateAge(dob: string): string {
+  if (!dob) return '';
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age >= 0 ? String(age) : '';
+}
+
 function App() {
   const wizard = useFormWizard(STEPS.length);
   const { data, updateData, lastSaved, isSaving } = useAutoSave<AssessmentFormData>(INITIAL_DATA);
+
+  // Auto-propagate client name, date, address, and age from Step 1 to other forms
+  useEffect(() => {
+    const { clientName, date, clientAddress, dateOfBirth } = data.clientHelpList;
+    const age = calculateAge(dateOfBirth);
+
+    let needsUpdate = false;
+    const updates: Partial<AssessmentFormData> = {};
+
+    // Sync to clientHistory
+    if (data.clientHistory.clientName !== clientName || data.clientHistory.date !== date || data.clientHistory.age !== age) {
+      updates.clientHistory = { ...data.clientHistory, clientName, date, age };
+      needsUpdate = true;
+    }
+
+    // Sync to clientAssessment
+    if (data.clientAssessment.clientName !== clientName || data.clientAssessment.date !== date) {
+      updates.clientAssessment = { ...data.clientAssessment, clientName, date };
+      needsUpdate = true;
+    }
+
+    // Sync to medicationList
+    if (data.medicationList.clientName !== clientName) {
+      updates.medicationList = { ...data.medicationList, clientName };
+      needsUpdate = true;
+    }
+
+    // Sync to homeSafetyChecklist
+    if (data.homeSafetyChecklist.clientName !== clientName || data.homeSafetyChecklist.date !== date || data.homeSafetyChecklist.clientAddress !== clientAddress) {
+      updates.homeSafetyChecklist = { ...data.homeSafetyChecklist, clientName, date, clientAddress };
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      updateData(prev => ({ ...prev, ...updates }));
+    }
+  }, [data.clientHelpList.clientName, data.clientHelpList.date, data.clientHelpList.clientAddress, data.clientHelpList.dateOfBirth]);
 
   const renderStep = () => {
     switch (wizard.currentStep) {
@@ -59,21 +110,21 @@ function App() {
         );
       case 3:
         return (
-          <HomeSafetyChecklist
-            data={data.homeSafetyChecklist}
-            onChange={partial => updateData(prev => ({
-              ...prev,
-              homeSafetyChecklist: { ...prev.homeSafetyChecklist, ...partial },
-            }))}
-          />
-        );
-      case 4:
-        return (
           <MedicationList
             data={data.medicationList}
             onChange={partial => updateData(prev => ({
               ...prev,
               medicationList: { ...prev.medicationList, ...partial },
+            }))}
+          />
+        );
+      case 4:
+        return (
+          <HomeSafetyChecklist
+            data={data.homeSafetyChecklist}
+            onChange={partial => updateData(prev => ({
+              ...prev,
+              homeSafetyChecklist: { ...prev.homeSafetyChecklist, ...partial },
             }))}
           />
         );

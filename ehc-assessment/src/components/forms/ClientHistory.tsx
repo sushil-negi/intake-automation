@@ -80,13 +80,14 @@ export function ClientHistory({ data, onChange }: Props) {
 
   return (
     <div className="space-y-6 pt-4">
-      {/* Assessment Info */}
-      <SectionHeader title="Assessment Information" />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <TextInput label="Client Name" value={data.clientName} onChange={e => onChange({ clientName: e.target.value })} />
-        <TextInput label="Date" type="date" value={data.date} onChange={e => onChange({ date: e.target.value })} />
-        <TextInput label="Age" type="number" value={data.age} onChange={e => onChange({ age: e.target.value })} placeholder="Auto-calculated if DOB provided" />
+      {/* Client banner — auto-populated from Step 1 */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        <span><span className="text-gray-500">Client:</span> <span className="font-medium text-gray-900">{data.clientName || '—'}</span></span>
+        <span><span className="text-gray-500">Date:</span> <span className="font-medium text-gray-900">{data.date || '—'}</span></span>
+        <span><span className="text-gray-500">Age:</span> <span className="font-medium text-gray-900">{data.age || '—'}</span></span>
       </div>
+
+      <SectionHeader title="Assessment Information" />
 
       <RadioGroup
         label="Reason for Assessment"

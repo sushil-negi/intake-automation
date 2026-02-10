@@ -285,6 +285,13 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
 
   return (
     <div className="space-y-6 pt-4">
+      {/* Client banner — auto-populated from Step 1 */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        <span><span className="text-gray-500">Client:</span> <span className="font-medium text-gray-900">{data.clientName || '—'}</span></span>
+        <span><span className="text-gray-500">Date:</span> <span className="font-medium text-gray-900">{data.date || '—'}</span></span>
+        <span><span className="text-gray-500">Address:</span> <span className="font-medium text-gray-900">{data.clientAddress || '—'}</span></span>
+      </div>
+
       <p className="text-sm text-gray-500 italic bg-yellow-50 rounded-lg p-3 border border-yellow-200">
         This is not meant to be a substitute for a professional safety inspection, it's a guide.
         Use the section buttons to set all items at once, then adjust individual exceptions.
