@@ -164,6 +164,87 @@ for (const section of SAFETY_SECTIONS) {
   }
 }
 
+// Actionable recommendation text for each flagged concern
+const RECOMMENDATIONS: Record<string, string> = {
+  // Entrance
+  outsideLights: 'Install outside lighting for sidewalks and entrance ways',
+  stepsCondition: 'Repair steps and sidewalks; clear debris from walkways',
+  railingsSecure: 'Secure or install railings on outside steps',
+  peephole: 'Install a functional peephole in the front door',
+  deadbolt: 'Install a deadbolt lock that opens from inside without a key',
+  // General
+  evacuationPlan: 'Create and post an emergency evacuation plan',
+  smokeDetectors: 'Install or replace smoke detectors',
+  fireExtinguisher: 'Provide a ready-to-use fire extinguisher',
+  hallsFreeClutter: 'Clear clutter and debris from halls and stairways',
+  throwRugs: 'Remove or secure throw rugs in client areas to prevent falls',
+  handrails: 'Install handrails or banisters by all steps and stairs',
+  electricalCords: 'Replace frayed electrical cords; reroute cords away from walkways',
+  coverPlates: 'Install cover plates on exposed electrical outlets in client areas',
+  areaRugsSecured: 'Secure area rug edges with non-slip backing or tape',
+  hazardousProducts: 'Label hazardous products and store in a secure location',
+  stoolNeeded: 'Relocate frequently used items to reachable height; provide a stable step stool',
+  smokeInHome: 'Establish smoking safety rules; ensure no smoking near oxygen or client',
+  oxygenUse: 'Post oxygen safety signage; verify no open flames near oxygen equipment',
+  petsInHome: 'Assess pet-related trip/fall hazards; secure pet areas during care',
+  pestFree: 'Arrange pest control services',
+  materialsProperHeight: 'Relocate care materials to a proper, accessible height',
+  emergencyResponse: 'Consider obtaining an emergency response necklace or bracelet',
+  // Medications
+  medsMarkedClearly: 'Have pharmacy re-label unclear medications',
+  pillBox: 'Set up a pill box or pill minder for medication management',
+  expiredMeds: 'Review and dispose of expired medications safely',
+  skippingMeds: 'Set up medication reminders; discuss adherence with physician',
+  medsEasyReach: 'Relocate medications to within easy reach of client',
+  moreThan5Meds: 'Request polypharmacy review with physician or pharmacist',
+  // Medical Equipment
+  sharpsContainer: 'Provide a proper sharps container for used needles',
+  oxygenTubing: 'Reroute oxygen tubing off walking paths',
+  equipmentStored: 'Relocate medical equipment out of walking paths',
+  // Living Areas
+  doorwaysWide: 'Assess doorway widths; consider modifications for wheelchair/walker access',
+  lightSwitches: 'Install accessible light switches or add nightlights near entrances',
+  sofasChairsHeight: 'Add seat risers or replace with higher, firmer seating',
+  telephone: 'Provide a telephone in the home',
+  emergencyNumbers: 'Post emergency telephone numbers by the telephone',
+  cordsAcrossWalking: 'Reroute telephone cords and electronic wires away from walking areas',
+  castorsWheels: 'Lock or remove castors/wheels on furniture in client areas',
+  armrests: 'Provide furniture with armrests to help client get in/out',
+  // Bathroom
+  glassDoors: 'Replace glass shower/tub doors with a curtain or safety glass',
+  nonSkidSurface: 'Place non-skid surface mat in bathtub/shower',
+  grabBars: 'Install grab bars in bathtub/shower and adjacent to toilet',
+  raisedToilet: 'Install a raised toilet seat',
+  waterHeater: 'Check and adjust water heater temperature to prevent scalding',
+  showerBench: 'Provide a shower bench/bath seat with a hand-held shower wand',
+  bathroomNightLight: 'Install a night light in the bathroom',
+  // Bedroom
+  scatterRugs: 'Remove scatter rugs from bedroom to prevent falls',
+  bedHeight: 'Adjust bed height to back-of-the-knee level or provide a bed rail',
+  chairArmrests: 'Provide a chair with armrests and firm seat in the bedroom',
+  furnitureCastors: 'Ensure bedroom furniture castors/wheels have working locks',
+  bedroomPhone: 'Place a telephone within reach of the bed',
+  bedroomEmergencyNumbers: 'Post emergency numbers by the bedroom telephone',
+  flashlightBed: 'Place a flashlight, lamp, or accessible light switch beside the bed',
+  bedroomNightLight: 'Install a night light in the bedroom',
+  // Kitchen
+  floorSlippery: 'Use non-slip floor treatment or mats in the kitchen',
+  flammableItems: 'Remove flammable items from near heat sources',
+  applianceButtons: 'Repair or replace appliances with non-working controls',
+  itemsStoredProperly: 'Rearrange frequently used items to between eye and knee level',
+  unclutteredWorkspace: 'Clear and organize workspace near cooking area',
+  // Lighting
+  nightLightsStairs: 'Install night lights in stairways and hallways',
+  lightSwitchStairs: 'Install light switches at both top and bottom of stairs',
+  lightSwitchDoorway: 'Install a light switch by the doorway of each room',
+  // Security
+  securityCompany: 'Consider contracting a security company for home monitoring',
+  doorWindowAlarms: 'Install door and window alarms',
+  // Ancillary Services
+  lifeAid: 'Consider enrolling in LifeAid service',
+  medicationStation: 'Consider setting up a Medication Station service',
+};
+
 export function HomeSafetyChecklist({ data, onChange }: Props) {
   const getItemData = (sectionData: Record<string, SafetyItem>, itemId: string): SafetyItem => {
     const raw = sectionData[itemId];
@@ -290,9 +371,74 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
         rows={4}
       />
 
-      <SectionHeader title="Office Use" />
+      <SectionHeader title="Office Use" subtitle="Auto-generated recommendations based on flagged concerns" />
+      {(() => {
+        // Collect all flagged items with their recommendations
+        const flagged: { section: string; recommendation: string; note: string }[] = [];
+        for (const section of SAFETY_SECTIONS) {
+          const sectionData = (data[section.key] as Record<string, SafetyItem>) || {};
+          for (const item of section.items) {
+            const itemData = getItemData(sectionData, item.id);
+            if (isConcernAnswer(item.id, itemData.answer)) {
+              flagged.push({
+                section: section.title,
+                recommendation: RECOMMENDATIONS[item.id] || item.label,
+                note: itemData.note,
+              });
+            }
+          }
+        }
+
+        const copyToNotes = () => {
+          const text = flagged.map(f =>
+            `[${f.section}] ${f.recommendation}${f.note ? ` — ${f.note}` : ''}`
+          ).join('\n');
+          onChange({ itemsNeedingAttention: text });
+        };
+
+        return (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {flagged.length === 0 ? (
+              <div className="px-4 py-6 text-center">
+                <span className="text-green-600 text-sm font-medium">No concerns flagged</span>
+                <p className="text-xs text-gray-400 mt-1">Recommendations will appear here when safety items are flagged above.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between px-4 py-2.5 bg-red-50 border-b border-red-200">
+                  <span className="text-sm font-medium text-red-700">{flagged.length} item{flagged.length !== 1 ? 's' : ''} need attention</span>
+                  <button
+                    type="button"
+                    onClick={copyToNotes}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-300 text-red-600 bg-white hover:bg-red-50 transition-all cursor-pointer min-h-[36px]"
+                  >
+                    Copy to Notes
+                  </button>
+                </div>
+                <ul className="divide-y divide-gray-100">
+                  {flagged.map((f, i) => (
+                    <li key={i} className="px-4 py-2.5 flex flex-col gap-0.5">
+                      <div className="flex items-start gap-2">
+                        <span className="text-red-400 text-xs mt-0.5">&#9679;</span>
+                        <div className="flex-1">
+                          <span className="text-sm text-gray-800">{f.recommendation}</span>
+                          <span className="text-xs text-gray-400 ml-2">({f.section})</span>
+                        </div>
+                      </div>
+                      {f.note && (
+                        <p className="text-xs text-gray-500 italic ml-4">Note: {f.note}</p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
       <TextArea
-        label="Items that need attention"
+        label="Additional notes"
         value={data.itemsNeedingAttention}
         onChange={e => onChange({ itemsNeedingAttention: e.target.value })}
         rows={4}
