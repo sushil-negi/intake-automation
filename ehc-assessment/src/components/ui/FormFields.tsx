@@ -188,7 +188,7 @@ export function ThreeWayToggle({ label, value, note = '', concernAnswer = 'no', 
               key={opt.val}
               type="button"
               onClick={() => onChange(opt.val)}
-              className={`px-2.5 py-1.5 rounded text-xs font-medium min-w-[40px] min-h-[36px] transition-all cursor-pointer
+              className={`px-2.5 py-1.5 rounded text-xs font-medium min-w-[44px] min-h-[44px] transition-all cursor-pointer
                 ${value === opt.val
                   ? activeStyle(opt.color)
                   : 'bg-white text-gray-400 border border-gray-200 hover:bg-gray-50'
@@ -208,7 +208,7 @@ export function ThreeWayToggle({ label, value, note = '', concernAnswer = 'no', 
             placeholder="Add details for this concern..."
             className="w-full px-3 py-2 text-sm border border-red-200 rounded-lg bg-red-50 text-gray-800
               focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-transparent
-              placeholder:text-red-300 min-h-[40px]"
+              placeholder:text-red-300 min-h-[44px]"
           />
         </div>
       )}

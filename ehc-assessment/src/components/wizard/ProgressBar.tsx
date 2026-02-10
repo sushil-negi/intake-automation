@@ -19,7 +19,7 @@ export function ProgressBar({ currentStep, totalSteps, steps, onStepClick }: Pro
       </div>
 
       {/* Step indicators */}
-      <div className="flex justify-between overflow-x-auto gap-1">
+      <div className="flex justify-between gap-1">
         {steps.map((step, index) => (
           <button
             key={index}
@@ -29,7 +29,7 @@ export function ProgressBar({ currentStep, totalSteps, steps, onStepClick }: Pro
             }`}
           >
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all ${
+              className={`w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all ${
                 index === currentStep
                   ? 'bg-amber-600 text-white border-amber-600'
                   : index < currentStep
@@ -39,7 +39,9 @@ export function ProgressBar({ currentStep, totalSteps, steps, onStepClick }: Pro
             >
               {index < currentStep ? '✓' : index + 1}
             </div>
-            <span className="text-xs mt-1 text-center leading-tight truncate w-full px-1 hidden sm:block">
+            <span className={`text-xs mt-1 text-center leading-tight truncate w-full px-0.5 sm:px-1 ${
+              index === currentStep ? 'block' : 'hidden sm:block'
+            }`}>
               {step.shortTitle}
             </span>
           </button>

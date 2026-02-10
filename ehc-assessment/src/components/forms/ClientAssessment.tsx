@@ -218,7 +218,7 @@ export function ClientAssessment({ data, onChange }: Props) {
   return (
     <div className="space-y-4 pt-4">
       {/* Client banner — auto-populated from Step 1 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-3 sm:gap-x-6 gap-y-1 text-sm">
         <span><span className="text-gray-500">Client:</span> <span className="font-medium text-gray-900">{data.clientName || '—'}</span></span>
         <span><span className="text-gray-500">Age:</span> <span className="font-medium text-gray-900">{data.age || '—'}</span></span>
         <span><span className="text-gray-500">Address:</span> <span className="font-medium text-gray-900">{data.clientAddress || '—'}</span></span>

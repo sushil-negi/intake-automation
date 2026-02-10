@@ -286,7 +286,7 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
   return (
     <div className="space-y-6 pt-4">
       {/* Client banner — auto-populated from Step 1 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-3 sm:gap-x-6 gap-y-1 text-sm">
         <span><span className="text-gray-500">Client:</span> <span className="font-medium text-gray-900">{data.clientName || '—'}</span></span>
         <span><span className="text-gray-500">Age:</span> <span className="font-medium text-gray-900">{data.age || '—'}</span></span>
         <span><span className="text-gray-500">Address:</span> <span className="font-medium text-gray-900">{data.clientAddress || '—'}</span></span>
@@ -321,9 +321,9 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
             />
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               {/* Bulk action bar */}
-              <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200 gap-3">
+              <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200 gap-2 sm:gap-3">
                 <span className="text-xs font-medium text-gray-500">Set all items:</span>
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {([
                     { val: 'yes' as const, label: 'All Yes', active: 'bg-green-100 text-green-700 border-green-400', idle: 'bg-white text-gray-500 border-gray-200 hover:border-green-300 hover:text-green-600' },
                     { val: 'no' as const, label: 'All No', active: 'bg-red-100 text-red-700 border-red-400', idle: 'bg-white text-gray-500 border-gray-200 hover:border-red-300 hover:text-red-600' },
@@ -333,7 +333,7 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
                       key={opt.val}
                       type="button"
                       onClick={() => bulkSetSection(section, opt.val)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all cursor-pointer min-h-[36px]
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-all cursor-pointer min-h-[44px]
                         ${bulkValue === opt.val ? opt.active : opt.idle}`}
                     >
                       {opt.label}
@@ -343,7 +343,7 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
                     <button
                       type="button"
                       onClick={() => clearSection(section)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all cursor-pointer min-h-[36px]"
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all cursor-pointer min-h-[44px]"
                     >
                       Clear
                     </button>
@@ -406,12 +406,12 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between px-4 py-2.5 bg-red-50 border-b border-red-200">
+                <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-red-50 border-b border-red-200 gap-2">
                   <span className="text-sm font-medium text-red-700">{flagged.length} item{flagged.length !== 1 ? 's' : ''} need attention</span>
                   <button
                     type="button"
                     onClick={copyToNotes}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-300 text-red-600 bg-white hover:bg-red-50 transition-all cursor-pointer min-h-[36px]"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-300 text-red-600 bg-white hover:bg-red-50 transition-all cursor-pointer min-h-[44px]"
                   >
                     Copy to Notes
                   </button>

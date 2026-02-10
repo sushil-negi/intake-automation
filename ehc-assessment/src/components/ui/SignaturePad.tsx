@@ -37,13 +37,13 @@ export function SignaturePad({ label, value, onChange }: SignaturePadProps) {
           </div>
         )}
         {value && !sigRef.current?.isEmpty() === false ? (
-          <img src={value} alt="Signature" className="w-full h-[150px] object-contain" />
+          <img src={value} alt="Signature" className="w-full h-[120px] sm:h-[150px] object-contain" />
         ) : null}
         <SignatureCanvas
           ref={sigRef}
           penColor="black"
           canvasProps={{
-            className: 'w-full h-[150px] touch-none',
+            className: 'w-full h-[120px] sm:h-[150px] touch-none',
           }}
           onEnd={handleEnd}
         />
@@ -51,7 +51,7 @@ export function SignaturePad({ label, value, onChange }: SignaturePadProps) {
       <button
         type="button"
         onClick={handleClear}
-        className="text-sm text-gray-500 hover:text-red-600 transition-colors"
+        className="text-sm text-gray-500 hover:text-red-600 transition-colors min-h-[44px]"
       >
         Clear signature
       </button>
