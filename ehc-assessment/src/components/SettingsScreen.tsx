@@ -187,7 +187,7 @@ export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps)
         try {
           let result: { ok: boolean; error?: string };
           // Detect type from draft.type or fall back to data shape inspection
-          const dataRecord = draft.data as Record<string, unknown>;
+          const dataRecord = draft.data as unknown as Record<string, unknown>;
           const isContract = draft.type === 'serviceContract'
             || (!draft.type && !!dataRecord.serviceAgreement);
           const isAssessment = draft.type === 'assessment'

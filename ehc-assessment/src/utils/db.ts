@@ -102,21 +102,21 @@ async function decryptDraft(stored: StoredDraftRecord): Promise<DraftRecord> {
 
   // Default type for legacy drafts; detect by checking data shape
   const type: DraftType = stored.type
-    || ((data as Record<string, unknown>).serviceAgreement ? 'serviceContract' : 'assessment');
+    || ((data as unknown as Record<string, unknown>).serviceAgreement ? 'serviceContract' : 'assessment');
 
   // Merge with schema defaults so legacy drafts get any new fields (e.g. staffNotes)
   // This is a shallow merge per top-level key — preserves existing saved values
   // while filling in any sections added after the draft was originally saved.
-  const dataRecord = data as Record<string, unknown>;
+  const dataRecord = data as unknown as Record<string, unknown>;
   if (type === 'assessment') {
-    const defaults = INITIAL_DATA as Record<string, unknown>;
+    const defaults = INITIAL_DATA as unknown as Record<string, unknown>;
     for (const key of Object.keys(defaults)) {
       if (dataRecord[key] === undefined) {
         dataRecord[key] = defaults[key];
       }
     }
   } else {
-    const defaults = SERVICE_CONTRACT_INITIAL_DATA as Record<string, unknown>;
+    const defaults = SERVICE_CONTRACT_INITIAL_DATA as unknown as Record<string, unknown>;
     for (const key of Object.keys(defaults)) {
       if (dataRecord[key] === undefined) {
         dataRecord[key] = defaults[key];

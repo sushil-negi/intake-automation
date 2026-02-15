@@ -281,29 +281,30 @@ export function unflattenAssessment(flat: Record<string, string>): AssessmentFor
     neighbors.push({
       name,
       phone: flat[`neighbor${i}_phone`] || '',
-      hasKeys: flat[`neighbor${i}_hasKeys`] || '',
+      hasKeys: (flat[`neighbor${i}_hasKeys`] || '') as '' | 'yes' | 'no',
     });
   }
   if (neighbors.length > 0) data.clientHelpList.neighbors = neighbors;
 
   // Client History
+  // Note: values come from Google Sheets as raw strings — cast to typed unions
   const ch = data.clientHistory;
-  if (flat['assessmentReason']) ch.assessmentReason = flat['assessmentReason'];
+  if (flat['assessmentReason']) ch.assessmentReason = flat['assessmentReason'] as typeof ch.assessmentReason;
   if (flat['reAssessmentReasons']) ch.reAssessmentReasons = flat['reAssessmentReasons'].split('; ').filter(Boolean);
   if (flat['primaryDiagnosis']) ch.primaryDiagnosis = flat['primaryDiagnosis'];
   if (flat['healthHistory']) ch.healthHistory = flat['healthHistory'].split('; ').filter(Boolean);
   if (flat['lastFallDate']) ch.lastFallDate = flat['lastFallDate'];
   if (flat['hospitalizations']) ch.hospitalizations = flat['hospitalizations'];
   if (flat['recentSurgery']) ch.recentSurgery = flat['recentSurgery'];
-  if (flat['smoker']) ch.smoker = flat['smoker'];
-  if (flat['oxygenInHome']) ch.oxygenInHome = flat['oxygenInHome'];
+  if (flat['smoker']) ch.smoker = flat['smoker'] as typeof ch.smoker;
+  if (flat['oxygenInHome']) ch.oxygenInHome = flat['oxygenInHome'] as typeof ch.oxygenInHome;
   if (flat['recentInfections']) ch.recentInfections = flat['recentInfections'];
-  if (flat['advanceDirective']) ch.advanceDirective = flat['advanceDirective'];
-  if (flat['primaryLanguage']) ch.primaryLanguage = flat['primaryLanguage'];
+  if (flat['advanceDirective']) ch.advanceDirective = flat['advanceDirective'] as typeof ch.advanceDirective;
+  if (flat['primaryLanguage']) ch.primaryLanguage = flat['primaryLanguage'] as typeof ch.primaryLanguage;
   if (flat['drugAllergies']) ch.drugAllergies = flat['drugAllergies'];
   if (flat['foodAllergies']) ch.foodAllergies = flat['foodAllergies'];
-  if (flat['livesAlone']) ch.livesAlone = flat['livesAlone'];
-  if (flat['pets']) ch.pets = flat['pets'];
+  if (flat['livesAlone']) ch.livesAlone = flat['livesAlone'] as typeof ch.livesAlone;
+  if (flat['pets']) ch.pets = flat['pets'] as typeof ch.pets;
   if (flat['serviceStartDate']) ch.serviceStartDate = flat['serviceStartDate'];
   ch.overnight = flat['overnight'] === 'Yes';
   ch.liveIn = flat['liveIn'] === 'Yes';
@@ -315,7 +316,7 @@ export function unflattenAssessment(flat: Record<string, string>): AssessmentFor
 
   // Client Assessment
   const ca = data.clientAssessment;
-  if (flat['assessmentType']) ca.assessmentType = flat['assessmentType'];
+  if (flat['assessmentType']) ca.assessmentType = flat['assessmentType'] as typeof ca.assessmentType;
   const categories = [
     'bathing', 'dressing', 'hairCare', 'teethAndGums', 'shaving', 'mobility',
     'falls', 'mobilityAids', 'nutritionHydration', 'bedRails', 'hearingAids',

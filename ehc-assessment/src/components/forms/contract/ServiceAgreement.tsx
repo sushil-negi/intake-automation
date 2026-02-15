@@ -1,4 +1,4 @@
-import { TextInput, SectionHeader, RadioGroup, YesNoToggle, SelectInput } from '../../ui/FormFields';
+import { TextInput, SectionHeader, YesNoToggle, SelectInput } from '../../ui/FormFields';
 import { SignaturePad } from '../../ui/SignaturePad';
 import { MaskedInput } from '../../ui/MaskedInput';
 import { PhoneInput } from '../../ui/PhoneInput';

@@ -35,7 +35,8 @@ export function isAssessmentComplete(data: AssessmentFormData): boolean {
 function stampDraftWatermark(doc: jsPDF): void {
   doc.saveGraphicsState();
   // Semi-transparent light gray text
-  doc.setGState(new doc.GState({ opacity: 0.08 }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  doc.setGState(new (doc.GState as any)({ opacity: 0.08 }));
   doc.setFontSize(90);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(180, 0, 0); // red tint (but very transparent)

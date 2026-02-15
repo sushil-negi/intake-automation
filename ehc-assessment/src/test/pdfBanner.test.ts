@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { jsPDF } from 'jspdf';
-import { HEADER_HEIGHT, PAGE_WIDTH, CONTENT_WIDTH, PDF_MARGIN } from '../utils/pdf/pdfStyles';
-import { FONT_SIZES } from '../utils/pdf/pdfStyles';
+import { HEADER_HEIGHT, CONTENT_WIDTH, FONT_SIZES } from '../utils/pdf/pdfStyles';
 
 /**
  * Visual PDF banner tests.

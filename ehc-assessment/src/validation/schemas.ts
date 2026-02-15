@@ -145,7 +145,7 @@ export const homeSafetyChecklistSchema = z.object({
 
 // Step 5: Consent — require all acknowledgments + HIPAA signature
 const consentCheckboxSchema = z.object({
-  checked: z.literal(true, { errorMap: () => ({ message: 'All acknowledgments must be checked before signing' }) }),
+  checked: z.literal(true, { error: 'All acknowledgments must be checked before signing' }),
   timestamp: z.string().min(1),
 });
 

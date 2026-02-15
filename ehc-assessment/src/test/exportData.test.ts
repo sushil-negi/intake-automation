@@ -100,7 +100,7 @@ describe('flattenData', () => {
       ...INITIAL_DATA,
       clientHistory: {
         ...INITIAL_DATA.clientHistory,
-        assessmentReason: 'initial',
+        assessmentReason: 'initial' as const,
       },
     };
     const flat = flattenData(data);
@@ -229,11 +229,11 @@ describe('unflattenAssessment', () => {
       ...INITIAL_DATA,
       clientHistory: {
         ...INITIAL_DATA.clientHistory,
-        assessmentReason: 'initial',
+        assessmentReason: 'initial' as const,
         primaryDiagnosis: 'Diabetes',
         healthHistory: ['diabetes', 'hypertension'],
-        smoker: 'no',
-        oxygenInHome: 'no',
+        smoker: 'no' as const,
+        oxygenInHome: 'no' as const,
         serviceDays: ['Mon', 'Wed', 'Fri'],
       },
     };
@@ -284,7 +284,7 @@ describe('unflattenAssessment', () => {
       ...INITIAL_DATA,
       clientAssessment: {
         ...INITIAL_DATA.clientAssessment,
-        assessmentType: 'initial',
+        assessmentType: 'initial' as const,
         bathing: ['Bathes self', 'Wants help with bathing'],
         mobility: ['Walks by self with no problems'],
       },

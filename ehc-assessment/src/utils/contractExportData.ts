@@ -270,7 +270,7 @@ export function unflattenContractData(flat: Record<string, string>): ServiceCont
   const dayItems = splitSemicolon(flat['scheduleDays']);
   for (const abbr of dayItems) {
     const key = DAY_MAP[abbr];
-    if (key) (freq as Record<string, unknown>)[key] = true;
+    if (key) (freq as unknown as Record<string, unknown>)[key] = true;
   }
 
   data.serviceAgreement.assignedCaregiver = flat['assignedCaregiver'] || '';

@@ -84,7 +84,7 @@ export function mapAssessmentToContract(assessment: AssessmentFormData): Service
   for (const day of clientHistory.serviceDays || []) {
     const key = dayMap[day.toLowerCase()];
     if (key) {
-      (frequency as Record<string, boolean>)[key] = true;
+      (frequency as unknown as Record<string, boolean>)[key] = true;
     }
   }
 

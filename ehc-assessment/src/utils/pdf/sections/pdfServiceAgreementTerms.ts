@@ -1,7 +1,7 @@
 import type { jsPDF } from 'jspdf';
 import type { TermsConditionsData } from '../../../types/serviceContract';
 import { PDF_MARGIN, PDF_COLORS, FONT_SIZES, CONTENT_WIDTH, checkPageBreak, SIGNATURE_META_FONT } from '../pdfStyles';
-import { renderSectionTitle, renderSubsectionTitle, renderField } from './pdfHeader';
+import { renderSectionTitle, renderSubsectionTitle } from './pdfHeader';
 
 /**
  * Render a block of legal text with paragraph wrapping.

@@ -76,7 +76,7 @@ export function useSheetsSync(): UseSheetsSync {
       }
 
       // Detect type from draft.type or fall back to data shape inspection
-      const dataRecord = freshDraft.data as Record<string, unknown>;
+      const dataRecord = freshDraft.data as unknown as Record<string, unknown>;
       const hasServiceAgreement = !!dataRecord?.serviceAgreement;
       const hasClientHelpList = !!dataRecord?.clientHelpList;
 

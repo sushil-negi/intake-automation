@@ -35,7 +35,7 @@ function makeDraft(overrides: Partial<DraftRecord> = {}): DraftRecord {
     id: 'draft-1',
     clientName: 'Test Client',
     type: 'assessment',
-    data: { clientHelpList: { clientName: 'Test' } },
+    data: { clientHelpList: { clientName: 'Test' } } as unknown as DraftRecord['data'],
     lastModified: new Date().toISOString(),
     status: 'draft',
     ...overrides,
@@ -122,7 +122,7 @@ describe('useSheetsSync', () => {
   it('syncDraft syncs contract draft successfully', async () => {
     const draft = makeDraft({
       type: 'serviceContract',
-      data: { serviceAgreement: { customerInfo: { firstName: 'Test' } } },
+      data: { serviceAgreement: { customerInfo: { firstName: 'Test' } } } as unknown as DraftRecord['data'],
     });
     vi.mocked(getDraft).mockResolvedValue(draft);
     vi.mocked(syncContract).mockResolvedValue({ ok: true });
@@ -160,7 +160,7 @@ describe('useSheetsSync', () => {
   });
 
   it('syncDraft returns error for unknown draft type', async () => {
-    const draft = makeDraft({ type: undefined, data: { randomKey: true } });
+    const draft = makeDraft({ type: undefined, data: { randomKey: true } as unknown as DraftRecord['data'] });
     vi.mocked(getDraft).mockResolvedValue(draft);
 
     const { result } = renderHook(() => useSheetsSync());

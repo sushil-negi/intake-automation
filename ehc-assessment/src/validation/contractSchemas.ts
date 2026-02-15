@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // Reusable consent-checkbox schema: checked must be true + timestamp present
 const consentCheckboxSchema = z.object({
-  checked: z.literal(true, { errorMap: () => ({ message: 'All acknowledgments must be checked before signing' }) }),
+  checked: z.literal(true, { error: 'All acknowledgments must be checked before signing' }),
   timestamp: z.string().min(1),
 });
 

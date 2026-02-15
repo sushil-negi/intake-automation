@@ -20,7 +20,7 @@ interface SignaturePadProps {
 
 export function SignaturePad({ label, value, onChange, signerRole = '', onMetadataChange, metadata, error, disabled }: SignaturePadProps) {
   const sigRef = useRef<SignatureCanvas>(null);
-  const [isEmpty, setIsEmpty] = useState(!value);
+  const [, setIsEmpty] = useState(!value);
   const [isDrawing, setIsDrawing] = useState(false);
   const [mode, setMode] = useState<'draw' | 'type'>(metadata?.method || 'draw');
   const [typedName, setTypedName] = useState('');

@@ -424,7 +424,7 @@ export function ClientHistory({ data, onChange, errors }: Props) {
                 <span className="text-gray-400 dark:text-slate-500 text-sm">to</span>
                 <TextInput label="" type="time" value={data.daySchedules._all?.to || ''} onChange={e => {
                   const schedules = { ...data.daySchedules };
-                  schedules._all = { from: schedules._all?.from || '', ...schedules._all, to: e.target.value };
+                  schedules._all = { ...schedules._all, from: schedules._all?.from || '', to: e.target.value };
                   onChange({ daySchedules: schedules });
                 }} className="flex-1" />
                 <button

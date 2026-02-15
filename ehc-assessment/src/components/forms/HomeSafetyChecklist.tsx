@@ -271,10 +271,10 @@ export function HomeSafetyChecklist({ data, onChange, crossFormContext, errors }
       const sectionData = (data[section] as Record<string, SafetyItem>) || {};
       const existing = sectionData[id];
       if (!existing || existing.answer !== 'na') {
-        updates[section] = {
-          ...(updates[section] as Record<string, SafetyItem> || sectionData),
+        (updates as Record<string, unknown>)[section] = {
+          ...((updates[section] ?? sectionData) as Record<string, SafetyItem>),
           [id]: { answer: 'na' as SafetyAnswer, note: '' },
-        } as HomeSafetyChecklistData[typeof section];
+        };
       }
     }
     if (Object.keys(updates).length > 0) {

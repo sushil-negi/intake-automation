@@ -18,7 +18,7 @@ export function DrugAutocomplete({ label, value, onChange, placeholder }: Props)
   const [suggestions, setSuggestions] = useState<DrugResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const id = useId();

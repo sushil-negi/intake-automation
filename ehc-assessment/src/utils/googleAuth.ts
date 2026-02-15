@@ -111,6 +111,7 @@ export function decodeGoogleJwt(credential: string): AuthUser {
     email: payload.email,
     name: payload.name,
     picture: payload.picture,
+    loginTime: Date.now(),
   };
 }
 

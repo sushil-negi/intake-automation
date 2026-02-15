@@ -152,8 +152,8 @@ describe('PHI Encryption at Rest', () => {
     const drafts = await getAllDrafts();
     expect(drafts).toHaveLength(1);
     expect(drafts[0].clientName).toBe('Alice Johnson');
-    expect((drafts[0].data as Record<string, unknown> & { clientHelpList: { clientName: string; dateOfBirth: string } }).clientHelpList.clientName).toBe('Alice Johnson');
-    expect((drafts[0].data as Record<string, unknown> & { clientHelpList: { clientName: string; dateOfBirth: string } }).clientHelpList.dateOfBirth).toBe('1985-03-15');
+    expect((drafts[0].data as unknown as Record<string, unknown> & { clientHelpList: { clientName: string; dateOfBirth: string } }).clientHelpList.clientName).toBe('Alice Johnson');
+    expect((drafts[0].data as unknown as Record<string, unknown> & { clientHelpList: { clientName: string; dateOfBirth: string } }).clientHelpList.dateOfBirth).toBe('1985-03-15');
   });
 });
 

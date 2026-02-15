@@ -60,7 +60,7 @@ export function renderConsent(doc: jsPDF, data: ConsentData, startY: number): nu
   y = renderSubsectionTitle(doc, 'Acknowledgments', y);
 
   for (const item of consentItems) {
-    const cb = (data as Record<string, unknown>)[item.key] as { checked?: boolean; timestamp?: string } | undefined;
+    const cb = (data as unknown as Record<string, unknown>)[item.key] as { checked?: boolean; timestamp?: string } | undefined;
     const checked = cb?.checked ?? false;
     const mark = checked ? CHECKBOX_CHECKED : CHECKBOX_UNCHECKED;
     doc.setFontSize(FONT_SIZES.small);

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { SERVICE_CONTRACT_INITIAL_DATA } from '../utils/contractInitialData';
 import { INITIAL_DATA } from '../utils/initialData';
 
