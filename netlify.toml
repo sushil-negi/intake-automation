@@ -9,6 +9,10 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# ─── Serverless Functions (shared config endpoint) ───────────────────────────
+[functions]
+  directory = "netlify/functions"
+
 # SPA fallback — all routes serve index.html (unforced: static files take precedence)
 [[redirects]]
   from = "/*"

@@ -7,7 +7,7 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { mapAssessmentToContract } from './utils/prefill';
-import { saveDraft, getAuthConfig, getSheetsConfig, saveSheetsConfig, purgeOldDrafts } from './utils/db';
+import { saveDraft, getSheetsConfig, saveSheetsConfig, purgeOldDrafts } from './utils/db';
 import { purgeOldLogs } from './utils/auditLog';
 import { googleSignOut } from './utils/googleAuth';
 import { writeEncryptedLocalStorage } from './utils/crypto';
@@ -17,11 +17,13 @@ import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { logger } from './utils/logger';
 import { logAudit } from './utils/auditLog';
+import { resolveConfig } from './utils/remoteConfig';
 import type { AppView } from './types/navigation';
 import type { AssessmentFormData } from './types/forms';
 import type { DraftRecord } from './utils/db';
 import type { AuthUser, AuthConfig } from './types/auth';
 import { DEFAULT_AUTH_CONFIG } from './types/auth';
+import type { ConfigSource } from './types/remoteConfig';
 
 const SESSION_KEY = 'ehc-auth-user';
 const MAX_SESSION_MS = 8 * 60 * 60 * 1000; // 8-hour absolute max session
@@ -48,17 +50,19 @@ function App() {
   const [authConfig, setAuthConfig] = useState<AuthConfig>(DEFAULT_AUTH_CONFIG);
   const [clientId, setClientId] = useState('');
   const [authLoading, setAuthLoading] = useState(true);
+  const [configSource, setConfigSource] = useState<ConfigSource>('local');
   const darkMode = useDarkMode();
 
-  // Load auth config + client ID on mount
+  // Load auth config + client ID on mount (try remote first, fall back to local)
   useEffect(() => {
     (async () => {
       try {
-        const [auth, sheets] = await Promise.all([getAuthConfig(), getSheetsConfig()]);
-        setAuthConfig(auth);
-        setClientId(sheets.oauthClientId);
+        const resolved = await resolveConfig();
+        setAuthConfig(resolved.authConfig);
+        setClientId(resolved.sheetsConfig.oauthClientId);
+        setConfigSource(resolved.source);
       } catch (err) {
-        logger.error('Failed to load auth config:', err);
+        logger.error('Failed to load config:', err);
       } finally {
         setAuthLoading(false);
       }
@@ -123,11 +127,14 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Reload auth config when returning from settings (config may have changed)
+  // Reload config when returning from settings (config may have changed)
   useEffect(() => {
     if (view.screen === 'dashboard') {
-      getAuthConfig().then(setAuthConfig).catch(() => {});
-      getSheetsConfig().then(cfg => setClientId(cfg.oauthClientId)).catch(() => {});
+      resolveConfig().then(resolved => {
+        setAuthConfig(resolved.authConfig);
+        setClientId(resolved.sheetsConfig.oauthClientId);
+        setConfigSource(resolved.source);
+      }).catch(() => {});
     }
   }, [view.screen]);
 
@@ -299,7 +306,7 @@ function App() {
       break;
 
     case 'settings':
-      content = <SettingsScreen onGoHome={goHome} authUserEmail={authUser?.email} />;
+      content = <SettingsScreen onGoHome={goHome} authUserEmail={authUser?.email} configSource={configSource} />;
       break;
 
     default:

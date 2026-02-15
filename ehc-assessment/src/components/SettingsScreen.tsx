@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AccordionSection } from './ui/AccordionSection';
 import { ConfirmDialog } from './ui/ConfirmDialog';
-import { getSheetsConfig, saveSheetsConfig, getAllDrafts, deleteDraft, getAuthConfig, saveAuthConfig, saveDraft, type DraftRecord } from '../utils/db';
+import { getSheetsConfig, saveSheetsConfig, getAllDrafts, deleteDraft, saveAuthConfig, saveDraft, type DraftRecord } from '../utils/db';
 import { testConnection, readAllRows, rowToFlatMap } from '../utils/sheetsApi';
 import { exportAllDraftsZip, unflattenAssessment } from '../utils/exportData';
 import { unflattenContractData } from '../utils/contractExportData';
@@ -17,13 +17,27 @@ import type { AssessmentFormData } from '../types/forms';
 import type { ServiceContractFormData } from '../types/serviceContract';
 import type { AuthConfig } from '../types/auth';
 import { DEFAULT_AUTH_CONFIG } from '../types/auth';
+import type { ConfigSource } from '../types/remoteConfig';
 
 interface SettingsScreenProps {
   onGoHome: () => void;
   authUserEmail?: string;
+  configSource?: ConfigSource;
 }
 
-export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps) {
+/** Small badge shown next to labels of remotely-managed fields */
+function RemoteBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 px-1.5 py-0.5 rounded ml-1.5">
+      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+      </svg>
+      Remote
+    </span>
+  );
+}
+
+export function SettingsScreen({ onGoHome, authUserEmail, configSource }: SettingsScreenProps) {
   const isOnline = useOnlineStatus();
 
   // Config state
@@ -82,13 +96,15 @@ export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps)
     } catch { /* ignore */ }
   }, []);
 
-  // Load config on mount
+  // Load config on mount (uses remote config if available, otherwise local)
   useEffect(() => {
     (async () => {
       try {
-        const [cfg, auth] = await Promise.all([getSheetsConfig(), getAuthConfig()]);
-        setConfig(cfg);
-        setAuthConfig(auth);
+        // Import resolveConfig dynamically to avoid circular deps
+        const { resolveConfig } = await import('../utils/remoteConfig');
+        const resolved = await resolveConfig();
+        setConfig(resolved.sheetsConfig);
+        setAuthConfig(resolved.authConfig);
       } catch (err) {
         logger.error('Failed to load config:', err);
       } finally {
@@ -403,13 +419,30 @@ export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps)
             </div>
           )}
 
+          {/* Remote config banner */}
+          {configSource === 'remote' && isAdmin && (
+            <div className="bg-blue-50 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-700 rounded-xl p-4 flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+              </svg>
+              <div>
+                <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">Configuration Managed Remotely</p>
+                <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                  Shared settings (OAuth Client ID, allowed emails, sheet names) are loaded from the server.
+                  Local edits will apply until the next page reload. To change shared config permanently,
+                  update the Netlify environment variables.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Sections 1-5: Admin-only settings (Sheets, Auth, Data Management) */}
           {isAdmin && (<>
           <AccordionSection title="Google Sheets Connection" defaultOpen>
             <div className="space-y-4">
               {/* Auth method */}
               <div>
-                <span className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Authentication Method</span>
+                <span className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Authentication Method{configSource === 'remote' && <RemoteBadge />}</span>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -453,7 +486,7 @@ export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps)
                 <div className="space-y-3">
                   {/* Client ID */}
                   <div>
-                    <label htmlFor="oauthClientId" className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">OAuth Client ID</label>
+                    <label htmlFor="oauthClientId" className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">OAuth Client ID{configSource === 'remote' && <RemoteBadge />}</label>
                     <input
                       id="oauthClientId"
                       type="text"
@@ -558,7 +591,7 @@ export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps)
 
               {/* Spreadsheet ID — shared for both auth methods */}
               <div>
-                <label htmlFor="spreadsheetId" className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Spreadsheet ID</label>
+                <label htmlFor="spreadsheetId" className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Spreadsheet ID{configSource === 'remote' && <RemoteBadge />}</label>
                 <input
                   id="spreadsheetId"
                   type="text"
@@ -868,7 +901,7 @@ export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps)
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="assessmentSheet" className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Assessment Sheet Name</label>
+                  <label htmlFor="assessmentSheet" className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Assessment Sheet Name{configSource === 'remote' && <RemoteBadge />}</label>
                   <input
                     id="assessmentSheet"
                     type="text"
@@ -878,7 +911,7 @@ export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps)
                   />
                 </div>
                 <div>
-                  <label htmlFor="contractSheet" className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Contract Sheet Name</label>
+                  <label htmlFor="contractSheet" className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Contract Sheet Name{configSource === 'remote' && <RemoteBadge />}</label>
                   <input
                     id="contractSheet"
                     type="text"
@@ -900,7 +933,7 @@ export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps)
                   onChange={e => updateConfig({ autoSyncOnSubmit: e.target.checked })}
                   className="accent-[#1a3a4a] w-4 h-4"
                 />
-                <span className="text-sm text-gray-700 dark:text-slate-300">Auto-sync on form submission</span>
+                <span className="text-sm text-gray-700 dark:text-slate-300">Auto-sync on form submission{configSource === 'remote' && <RemoteBadge />}</span>
               </label>
 
               {/* Export Privacy Filters (19.3) */}
@@ -1308,7 +1341,7 @@ export function SettingsScreen({ onGoHome, authUserEmail }: SettingsScreenProps)
                   )}
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Session Idle Timeout</label>
+                    <label className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Session Idle Timeout{configSource === 'remote' && <RemoteBadge />}</label>
                     <select
                       value={authConfig.idleTimeoutMinutes || 15}
                       onChange={async (e) => {
