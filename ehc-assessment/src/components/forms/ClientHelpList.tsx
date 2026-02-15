@@ -1,22 +1,78 @@
 import { TextInput, TextArea, YesNoToggle, SectionHeader } from '../ui/FormFields';
+import { AddressAutocomplete } from '../ui/AddressAutocomplete';
+import { PhoneInput } from '../ui/PhoneInput';
 import type { ClientHelpListData } from '../../types/forms';
 
 interface Props {
   data: ClientHelpListData;
   onChange: (data: Partial<ClientHelpListData>) => void;
+  errors?: Record<string, string>;
 }
 
-export function ClientHelpList({ data, onChange }: Props) {
+const EMPTY_CONTACT = { name: '', relationship: '', address: '', phone1: '', phone2: '', email: '' };
+const EMPTY_DOCTOR = { name: '', type: '', phone: '' };
+const EMPTY_HOSPITAL = { name: '' };
+const EMPTY_NEIGHBOR = { name: '', phone: '', hasKeys: '' as const };
+
+export function ClientHelpList({ data, onChange, errors }: Props) {
   const updateContact = (index: number, field: string, value: string) => {
     const contacts = [...data.emergencyContacts];
     contacts[index] = { ...contacts[index], [field]: value };
     onChange({ emergencyContacts: contacts });
   };
 
+  const addContact = () => {
+    onChange({ emergencyContacts: [...data.emergencyContacts, { ...EMPTY_CONTACT }] });
+  };
+
+  const removeContact = (index: number) => {
+    const contacts = data.emergencyContacts.filter((_, i) => i !== index);
+    onChange({ emergencyContacts: contacts.length > 0 ? contacts : [{ ...EMPTY_CONTACT }] });
+  };
+
   const updateDoctor = (index: number, field: string, value: string) => {
     const doctors = [...data.doctors];
     doctors[index] = { ...doctors[index], [field]: value };
     onChange({ doctors: doctors });
+  };
+
+  const addDoctor = () => {
+    onChange({ doctors: [...data.doctors, { ...EMPTY_DOCTOR }] });
+  };
+
+  const removeDoctor = (index: number) => {
+    const doctors = data.doctors.filter((_, i) => i !== index);
+    onChange({ doctors: doctors.length > 0 ? doctors : [{ ...EMPTY_DOCTOR }] });
+  };
+
+  const updateHospital = (index: number, value: string) => {
+    const hospitals = [...data.hospitals];
+    hospitals[index] = { name: value };
+    onChange({ hospitals });
+  };
+
+  const addHospital = () => {
+    onChange({ hospitals: [...data.hospitals, { ...EMPTY_HOSPITAL }] });
+  };
+
+  const removeHospital = (index: number) => {
+    const hospitals = data.hospitals.filter((_, i) => i !== index);
+    onChange({ hospitals: hospitals.length > 0 ? hospitals : [{ ...EMPTY_HOSPITAL }] });
+  };
+
+  const updateNeighbor = (index: number, field: string, value: string) => {
+    const neighbors = [...data.neighbors];
+    neighbors[index] = { ...neighbors[index], [field]: value };
+    onChange({ neighbors });
+  };
+
+  const addNeighbor = () => {
+    onChange({ neighbors: [...data.neighbors, { ...EMPTY_NEIGHBOR }] });
+  };
+
+  const removeNeighbor = (index: number) => {
+    const neighbors = data.neighbors.filter((_, i) => i !== index);
+    onChange({ neighbors: neighbors.length > 0 ? neighbors : [{ ...EMPTY_NEIGHBOR }] });
   };
 
   return (
@@ -29,26 +85,26 @@ export function ClientHelpList({ data, onChange }: Props) {
           value={data.clientName}
           onChange={e => onChange({ clientName: e.target.value })}
           placeholder="Full name"
+          error={errors?.clientName}
         />
         <TextInput
           label="Date of Birth"
           type="date"
           value={data.dateOfBirth}
           onChange={e => onChange({ dateOfBirth: e.target.value })}
+          error={errors?.dateOfBirth}
         />
       </div>
-      <TextInput
+      <AddressAutocomplete
         label="Client Address"
         value={data.clientAddress}
-        onChange={e => onChange({ clientAddress: e.target.value })}
+        onChange={val => onChange({ clientAddress: val })}
         placeholder="Street address, city, state, zip"
       />
-      <TextInput
+      <PhoneInput
         label="Client Phone Number"
-        type="tel"
         value={data.clientPhone}
-        onChange={e => onChange({ clientPhone: e.target.value })}
-        placeholder="(555) 555-5555"
+        onChange={val => onChange({ clientPhone: val })}
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <TextInput
@@ -72,10 +128,22 @@ export function ClientHelpList({ data, onChange }: Props) {
       />
 
       {/* Emergency Contacts */}
-      <SectionHeader title="Emergency Contacts" subtitle="Up to 3 emergency contacts" />
+      <SectionHeader title="Emergency Contacts" />
       {data.emergencyContacts.map((contact, index) => (
-        <div key={index} className="bg-gray-50 rounded-xl p-4 space-y-3">
-          <p className="text-sm font-medium text-gray-500">Contact {index + 1}</p>
+        <div key={index} className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Contact {index + 1}</p>
+            {data.emergencyContacts.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removeContact(index)}
+                aria-label={`Remove contact ${index + 1}`}
+                className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 font-medium min-h-[44px] px-2 py-2"
+              >
+                Remove
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <TextInput
               label="Name"
@@ -88,33 +156,58 @@ export function ClientHelpList({ data, onChange }: Props) {
               onChange={e => updateContact(index, 'relationship', e.target.value)}
             />
           </div>
-          <TextInput
+          <AddressAutocomplete
             label="Address"
             value={contact.address}
-            onChange={e => updateContact(index, 'address', e.target.value)}
+            onChange={val => updateContact(index, 'address', val)}
+            placeholder="Street address, city, state, zip"
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <TextInput
+            <PhoneInput
               label="Phone (1)"
-              type="tel"
               value={contact.phone1}
-              onChange={e => updateContact(index, 'phone1', e.target.value)}
+              onChange={val => updateContact(index, 'phone1', val)}
             />
-            <TextInput
+            <PhoneInput
               label="Phone (2)"
-              type="tel"
               value={contact.phone2}
-              onChange={e => updateContact(index, 'phone2', e.target.value)}
+              onChange={val => updateContact(index, 'phone2', val)}
             />
           </div>
+          <TextInput
+            label="Email"
+            type="email"
+            value={contact.email}
+            onChange={e => updateContact(index, 'email', e.target.value)}
+            placeholder="email@example.com"
+          />
         </div>
       ))}
+      <button
+        type="button"
+        onClick={addContact}
+        className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-600 text-sm font-medium text-gray-500 dark:text-slate-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+      >
+        + Add Emergency Contact
+      </button>
 
       {/* Doctor Information */}
-      <SectionHeader title="Doctor Information" subtitle="Up to 3 doctors" />
+      <SectionHeader title="Doctor Information" />
       {data.doctors.map((doctor, index) => (
-        <div key={index} className="bg-gray-50 rounded-xl p-4 space-y-3">
-          <p className="text-sm font-medium text-gray-500">Doctor {index + 1}</p>
+        <div key={index} className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Doctor {index + 1}</p>
+            {data.doctors.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removeDoctor(index)}
+                aria-label={`Remove doctor ${index + 1}`}
+                className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 font-medium min-h-[44px] px-2 py-2"
+              >
+                Remove
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <TextInput
               label="Doctor Name"
@@ -127,51 +220,96 @@ export function ClientHelpList({ data, onChange }: Props) {
               onChange={e => updateDoctor(index, 'type', e.target.value)}
               placeholder="e.g., Primary, Cardiologist"
             />
-            <TextInput
+            <PhoneInput
               label="Phone"
-              type="tel"
               value={doctor.phone}
-              onChange={e => updateDoctor(index, 'phone', e.target.value)}
+              onChange={val => updateDoctor(index, 'phone', val)}
             />
           </div>
         </div>
       ))}
+      <button
+        type="button"
+        onClick={addDoctor}
+        className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-600 text-sm font-medium text-gray-500 dark:text-slate-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+      >
+        + Add Doctor
+      </button>
 
       {/* Hospital Preference */}
       <SectionHeader title="Hospital Preference" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <TextInput
-          label="Hospital 1"
-          value={data.hospitalPreference1}
-          onChange={e => onChange({ hospitalPreference1: e.target.value })}
-        />
-        <TextInput
-          label="Hospital 2"
-          value={data.hospitalPreference2}
-          onChange={e => onChange({ hospitalPreference2: e.target.value })}
-        />
-      </div>
+      {data.hospitals.map((hospital, index) => (
+        <div key={index} className="flex items-end gap-3">
+          <div className="flex-1">
+            <TextInput
+              label={`Hospital ${index + 1}`}
+              value={hospital.name}
+              onChange={e => updateHospital(index, e.target.value)}
+            />
+          </div>
+          {data.hospitals.length > 1 && (
+            <button
+              type="button"
+              onClick={() => removeHospital(index)}
+              aria-label={`Remove hospital ${index + 1}`}
+              className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 font-medium min-h-[44px] px-2 py-2"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addHospital}
+        className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-600 text-sm font-medium text-gray-500 dark:text-slate-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+      >
+        + Add Hospital
+      </button>
 
-      {/* Neighbor */}
+      {/* Neighbors */}
       <SectionHeader title="Neighbor(s)" />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <TextInput
-          label="Name"
-          value={data.neighborName}
-          onChange={e => onChange({ neighborName: e.target.value })}
-        />
-        <TextInput
-          label="Phone"
-          type="tel"
-          value={data.neighborPhone}
-          onChange={e => onChange({ neighborPhone: e.target.value })}
-        />
-        <YesNoToggle
-          label="Has Keys?"
-          value={data.neighborHasKeys}
-          onChange={val => onChange({ neighborHasKeys: val })}
-        />
-      </div>
+      {data.neighbors.map((neighbor, index) => (
+        <div key={index} className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-500 dark:text-slate-400">Neighbor {index + 1}</p>
+            {data.neighbors.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removeNeighbor(index)}
+                aria-label={`Remove neighbor ${index + 1}`}
+                className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 font-medium min-h-[44px] px-2 py-2"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <TextInput
+              label="Name"
+              value={neighbor.name}
+              onChange={e => updateNeighbor(index, 'name', e.target.value)}
+            />
+            <PhoneInput
+              label="Phone"
+              value={neighbor.phone}
+              onChange={val => updateNeighbor(index, 'phone', val)}
+            />
+            <YesNoToggle
+              label="Has Keys?"
+              value={neighbor.hasKeys}
+              onChange={val => updateNeighbor(index, 'hasKeys', val)}
+            />
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addNeighbor}
+        className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 dark:border-slate-600 text-sm font-medium text-gray-500 dark:text-slate-400 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+      >
+        + Add Neighbor
+      </button>
 
       {/* Health Recently/Events */}
       <SectionHeader title="Health Recently / Events" />

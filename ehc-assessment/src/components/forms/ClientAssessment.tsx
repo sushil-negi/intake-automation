@@ -1,12 +1,15 @@
 import { RadioGroup, SectionHeader } from '../ui/FormFields';
 import { TextInput } from '../ui/FormFields';
 import { ToggleCard } from '../ui/ToggleCard';
+import { ToggleCardGroup } from '../ui/ToggleCardGroup';
 import { CategoryCard } from '../ui/CategoryCard';
+import { SignaturePad } from '../ui/SignaturePad';
 import type { ClientAssessmentData } from '../../types/forms';
 
 interface Props {
   data: ClientAssessmentData;
   onChange: (data: Partial<ClientAssessmentData>) => void;
+  errors?: Record<string, string>;
 }
 
 const ASSESSMENT_CATEGORIES: {
@@ -203,7 +206,7 @@ const ASSESSMENT_CATEGORIES: {
   },
 ];
 
-export function ClientAssessment({ data, onChange }: Props) {
+export function ClientAssessment({ data, onChange, errors: _errors }: Props) {
   const toggleOption = (category: keyof ClientAssessmentData, option: string) => {
     const current = data[category] as string[];
     const updated = current.includes(option)
@@ -212,23 +215,31 @@ export function ClientAssessment({ data, onChange }: Props) {
     onChange({ [category]: updated });
   };
 
-  // Conditional logic: check if mobility is self-sufficient
-  const walksAlone = (data.mobility as string[]).includes('Walks by self with no problems');
+  // Conditional logic: check mobility state
+  const mobilityValues = (data.mobility as string[]) || [];
+  const walksAlone = mobilityValues.includes('Walks by self with no problems');
+  const isImmobile = mobilityValues.includes('Immobile/bedbound');
+
+  // Bathing/hygiene self-sufficient checks
+  const bathesSelf = (data.bathing as string[])?.includes('Bathes self');
+  const brushesOwnHair = (data.hairCare as string[])?.includes('Brushes & styles own hair') &&
+    (data.hairCare as string[])?.includes('Shampoos own hair & styles');
+  const brushesOwnTeeth = (data.teethAndGums as string[])?.includes('Brushes own teeth');
 
   return (
     <div className="space-y-4 pt-4">
       {/* Client banner — auto-populated from Step 1 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-3 sm:gap-x-6 gap-y-1 text-sm">
-        <span><span className="text-gray-500">Client:</span> <span className="font-medium text-gray-900">{data.clientName || '—'}</span></span>
-        <span><span className="text-gray-500">Age:</span> <span className="font-medium text-gray-900">{data.age || '—'}</span></span>
-        <span><span className="text-gray-500">Address:</span> <span className="font-medium text-gray-900">{data.clientAddress || '—'}</span></span>
-        <span><span className="text-gray-500">Assessment Date:</span> <span className="font-medium text-gray-900">{data.date || '—'}</span></span>
+      <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 flex flex-wrap gap-x-3 sm:gap-x-6 gap-y-1 text-sm">
+        <span><span className="text-gray-500 dark:text-slate-400">Client:</span> <span className="font-medium text-gray-900 dark:text-slate-100">{data.clientName || '—'}</span></span>
+        <span><span className="text-gray-500 dark:text-slate-400">Age:</span> <span className="font-medium text-gray-900 dark:text-slate-100">{data.age || '—'}</span></span>
+        <span><span className="text-gray-500 dark:text-slate-400">Address:</span> <span className="font-medium text-gray-900 dark:text-slate-100">{data.clientAddress || '—'}</span></span>
+        <span><span className="text-gray-500 dark:text-slate-400">Assessment Date:</span> <span className="font-medium text-gray-900 dark:text-slate-100">{data.date || '—'}</span></span>
       </div>
 
       <SectionHeader title="Assessment Type" />
       <div className="flex items-end gap-4">
         <RadioGroup
-          label=""
+          label="Assessment Type"
           name="assessmentType"
           value={data.assessmentType}
           options={[
@@ -253,31 +264,73 @@ export function ClientAssessment({ data, onChange }: Props) {
       <div className="space-y-3">
         {ASSESSMENT_CATEGORIES.map(category => {
           const values = (data[category.key] || []) as string[];
-          // Conditional: dim mobility aids if walks alone
+
+          // --- Conditional logic ---
+          // Mobility aids: dim if walks alone
           const isDimmed = category.key === 'mobilityAids' && walksAlone;
-          // Conditional: dim falls if walks alone
+          // Falls: dim if walks alone, hide if immobile/bedbound
           const isFallsDimmed = category.key === 'falls' && walksAlone;
+          const isHidden = category.key === 'falls' && isImmobile;
+
+          // Bathing/hygiene: dim assistance options when self-sufficient
+          const isBathingDimmed = category.key === 'bathing' && bathesSelf && values.length === 1;
+          const isHairCareDimmed = category.key === 'hairCare' && brushesOwnHair && values.length === 2;
+          const isTeethDimmed = category.key === 'teethAndGums' && brushesOwnTeeth && values.length === 1;
+
+          const dimmed = isDimmed || isFallsDimmed || isBathingDimmed || isHairCareDimmed || isTeethDimmed;
+          const dimReason =
+            isDimmed ? 'Client walks by self — mobility aids unlikely needed' :
+            isFallsDimmed ? 'Client walks by self — falls section may not apply' :
+            isBathingDimmed ? 'Client bathes self — assistance options collapsed' :
+            isHairCareDimmed ? 'Client manages own hair care' :
+            isTeethDimmed ? 'Client brushes own teeth' : '';
+
+          if (isHidden) return null;
 
           return (
-            <div key={category.key} className={isDimmed || isFallsDimmed ? 'opacity-50' : ''}>
+            <div key={category.key} className={dimmed ? 'opacity-50' : ''}>
+              {dimmed && dimReason && (
+                <p className="text-xs text-gray-500 dark:text-slate-400 italic mb-1 ml-1">{dimReason}</p>
+              )}
               <CategoryCard
                 title={category.title}
                 selectedCount={values.length}
                 totalCount={category.options.length}
                 defaultOpen={values.length > 0}
               >
-                {category.options.map(option => (
-                  <ToggleCard
-                    key={option}
-                    label={option}
-                    selected={values.includes(option)}
-                    onChange={() => toggleOption(category.key, option)}
-                  />
-                ))}
+                <ToggleCardGroup label={`${category.title} options`} className="space-y-1">
+                  {category.options.map(option => (
+                    <ToggleCard
+                      key={option}
+                      label={option}
+                      selected={values.includes(option)}
+                      onChange={() => toggleOption(category.key, option)}
+                    />
+                  ))}
+                </ToggleCardGroup>
               </CategoryCard>
             </div>
           );
         })}
+      </div>
+
+      {/* EHC Representative Signature */}
+      <SectionHeader title="EHC Representative Signature" />
+      <div className="space-y-4">
+        <TextInput
+          label="EHC Staff Name"
+          value={data.ehcStaffName}
+          onChange={e => onChange({ ehcStaffName: e.target.value })}
+          placeholder="Full name of EHC staff member"
+        />
+        <SignaturePad
+          label="EHC Representative Signature"
+          value={data.ehcRepSignature}
+          onChange={val => onChange({ ehcRepSignature: val })}
+          signerRole="EHC Representative"
+          metadata={data.ehcRepSignatureMeta}
+          onMetadataChange={meta => onChange({ ehcRepSignatureMeta: meta })}
+        />
       </div>
     </div>
   );

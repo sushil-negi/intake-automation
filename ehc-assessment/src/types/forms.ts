@@ -4,12 +4,23 @@ export interface EmergencyContact {
   address: string;
   phone1: string;
   phone2: string;
+  email: string;
 }
 
 export interface DoctorInfo {
   name: string;
   type: string;
   phone: string;
+}
+
+export interface HospitalPreference {
+  name: string;
+}
+
+export interface Neighbor {
+  name: string;
+  phone: string;
+  hasKeys: 'yes' | 'no' | '';
 }
 
 export interface ClientHelpListData {
@@ -22,11 +33,8 @@ export interface ClientHelpListData {
   date: string;
   emergencyContacts: EmergencyContact[];
   doctors: DoctorInfo[];
-  hospitalPreference1: string;
-  hospitalPreference2: string;
-  neighborName: string;
-  neighborPhone: string;
-  neighborHasKeys: 'yes' | 'no' | '';
+  hospitals: HospitalPreference[];
+  neighbors: Neighbor[];
   healthRecentlyEvents: string;
 }
 
@@ -49,8 +57,10 @@ export interface ClientHistoryData {
   servicesPerWeek: string;
   overnight: boolean;
   liveIn: boolean;
+  is24x7: boolean;
   serviceStartDate: string;
-  preferredTimes: { from: string; to: string }[];
+  serviceDays: string[];
+  daySchedules: Record<string, { from: string; to: string }>;
   primaryDiagnosis: string;
   healthHistory: string[];
   lastFallDate: string;
@@ -59,6 +69,7 @@ export interface ClientHistoryData {
   recentHipSurgery: 'na' | 'yes' | 'no' | '';
   recentHipSurgeryDate: string;
   smoker: 'yes' | 'no' | '';
+  smokerNotes: string;
   oxygenInHome: 'yes' | 'no' | '';
   recentInfections: string;
   otherProviders: OtherProvider[];
@@ -90,6 +101,9 @@ export interface ClientHistoryData {
   pets: 'yes' | 'no' | '';
   petKind: string;
   petCount: string;
+  ehcStaffName: string;
+  ehcRepSignature: string;
+  ehcRepSignatureMeta: SignatureMetadata | null;
 }
 
 export interface ClientAssessmentData {
@@ -115,6 +129,15 @@ export interface ClientAssessmentData {
   exerciseReminders: string[];
   housekeeping: string[];
   transportation: string[];
+  ehcStaffName: string;
+  ehcRepSignature: string;
+  ehcRepSignatureMeta: SignatureMetadata | null;
+}
+
+export interface SignatureMetadata {
+  timestamp: string;
+  signerRole: string;
+  method: 'draw' | 'type';
 }
 
 export type SafetyAnswer = 'yes' | 'no' | 'na' | '';
@@ -145,7 +168,9 @@ export interface HomeSafetyChecklistData {
   signerName: string;
   ehcStaffName: string;
   clientSignature: string;
+  clientSignatureMeta: SignatureMetadata | null;
   representativeSignature: string;
+  representativeSignatureMeta: SignatureMetadata | null;
 }
 
 export interface Medication {
@@ -166,14 +191,36 @@ export interface MedicationListData {
   noMedications: boolean;
 }
 
+export interface ConsentCheckbox {
+  checked: boolean;
+  timestamp: string; // ISO string when checked, '' when unchecked
+}
+
 export interface ConsentData {
   clientName: string;
   date: string;
   clientAddress: string;
   age: string;
+  // Granular consent checkboxes
+  consentTreatment: ConsentCheckbox;
+  consentInfoSharing: ConsentCheckbox;
+  consentElectronicRecords: ConsentCheckbox;
+  consentDataRetention: ConsentCheckbox;
+  // Signature
   signerName: string;
   hipaaSignature: string;
+  hipaaSignatureMeta: SignatureMetadata | null;
   hipaaSignatureDate: string;
+}
+
+/** Internal staff notes per form section — not client-facing */
+export interface StaffNotes {
+  clientHelpList: string;
+  clientHistory: string;
+  clientAssessment: string;
+  homeSafetyChecklist: string;
+  medicationList: string;
+  consent: string;
 }
 
 export interface AssessmentFormData {
@@ -183,6 +230,7 @@ export interface AssessmentFormData {
   homeSafetyChecklist: HomeSafetyChecklistData;
   medicationList: MedicationListData;
   consent: ConsentData;
+  staffNotes: StaffNotes;
 }
 
 export interface WizardStep {

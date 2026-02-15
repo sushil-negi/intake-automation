@@ -9,12 +9,16 @@ export function ToggleCard({ label, selected, onChange, disabled = false }: Togg
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={selected}
+      aria-label={label}
+      data-toggle-card
       onClick={() => !disabled && onChange(!selected)}
       disabled={disabled}
       className={`w-full text-left px-3 py-2.5 rounded-lg border-2 transition-all text-sm cursor-pointer
         ${selected
-          ? 'border-amber-500 bg-amber-50 text-amber-900'
-          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+          ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200'
+          : 'border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-300 hover:border-gray-300 dark:hover:border-slate-500 hover:bg-gray-50 dark:hover:bg-slate-700'
         }
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         active:scale-[0.98] min-h-[44px] flex items-center gap-2`}
@@ -23,7 +27,7 @@ export function ToggleCard({ label, selected, onChange, disabled = false }: Togg
         className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all ${
           selected
             ? 'bg-amber-500 border-amber-500'
-            : 'border-gray-300 bg-white'
+            : 'border-gray-300 dark:border-slate-500 bg-white dark:bg-slate-700'
         }`}
       >
         {selected && (

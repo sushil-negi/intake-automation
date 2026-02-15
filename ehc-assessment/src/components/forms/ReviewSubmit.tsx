@@ -1,9 +1,14 @@
+import { useState, useRef } from 'react';
 import { SectionHeader } from '../ui/FormFields';
+import { PdfPreviewModal } from '../ui/PdfPreviewModal';
+import { logger } from '../../utils/logger';
 import type { AssessmentFormData } from '../../types/forms';
+import type { jsPDF } from 'jspdf';
 
 interface Props {
   data: AssessmentFormData;
   onGoToStep: (step: number) => void;
+  onContinueToContract?: () => void;
 }
 
 // Step indices (must match STEPS in App.tsx)
@@ -16,17 +21,18 @@ function ReviewSection({ title, stepIndex, status, onEdit, children }: {
   onEdit: (step: number) => void;
   children: React.ReactNode;
 }) {
-  const borderColor = status === 'incomplete' ? 'border-red-200' : status === 'warning' ? 'border-yellow-200' : 'border-gray-200';
+  const borderColor = status === 'incomplete' ? 'border-red-200 dark:border-red-800' : status === 'warning' ? 'border-yellow-200 dark:border-yellow-800' : 'border-gray-200 dark:border-slate-700';
   return (
-    <div className={`bg-white rounded-xl border ${borderColor} overflow-hidden`}>
+    <div className={`bg-white dark:bg-slate-800 rounded-xl border ${borderColor} overflow-hidden`}>
       <div className={`flex items-center justify-between px-4 py-3 border-b ${borderColor} ${
-        status === 'incomplete' ? 'bg-red-50' : status === 'warning' ? 'bg-yellow-50' : 'bg-gray-50'
+        status === 'incomplete' ? 'bg-red-50 dark:bg-red-900/30' : status === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/30' : 'bg-gray-50 dark:bg-slate-700/50'
       }`}>
         <div className="flex items-center gap-2">
-          {status === 'complete' && <span className="w-2.5 h-2.5 rounded-full bg-green-500" />}
-          {status === 'incomplete' && <span className="w-2.5 h-2.5 rounded-full bg-red-400" />}
-          {status === 'warning' && <span className="w-2.5 h-2.5 rounded-full bg-yellow-400" />}
-          <h3 className="font-semibold text-gray-900 text-sm">{title}</h3>
+          {status === 'complete' && <span className="w-2.5 h-2.5 rounded-full bg-green-500" aria-hidden="true" />}
+          {status === 'incomplete' && <span className="w-2.5 h-2.5 rounded-full bg-red-400" aria-hidden="true" />}
+          {status === 'warning' && <span className="w-2.5 h-2.5 rounded-full bg-yellow-400" aria-hidden="true" />}
+          <span className="sr-only">{status === 'complete' ? 'Complete' : status === 'incomplete' ? 'Incomplete' : 'Warning'}</span>
+          <h3 className="font-semibold text-gray-900 dark:text-slate-100 text-sm">{title}</h3>
         </div>
         <button
           type="button"
@@ -36,7 +42,7 @@ function ReviewSection({ title, stepIndex, status, onEdit, children }: {
           Edit
         </button>
       </div>
-      <div className="px-4 py-3 space-y-1 text-sm text-gray-700">
+      <div className="px-4 py-3 space-y-1 text-sm text-gray-700 dark:text-slate-300">
         {children}
       </div>
     </div>
@@ -47,13 +53,16 @@ function Field({ label, value }: { label: string; value: string | undefined }) {
   if (!value) return null;
   return (
     <div className="flex gap-2 py-0.5">
-      <span className="text-gray-500 flex-shrink-0">{label}:</span>
+      <span className="text-gray-500 dark:text-slate-400 flex-shrink-0">{label}:</span>
       <span className="font-medium">{value}</span>
     </div>
   );
 }
 
-export function ReviewSubmit({ data, onGoToStep }: Props) {
+export function ReviewSubmit({ data, onGoToStep, onContinueToContract }: Props) {
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [preview, setPreview] = useState<{ blob: Blob; filename: string } | null>(null);
+  const pdfDocRef = useRef<jsPDF | null>(null);
   const { clientHelpList, clientHistory, clientAssessment, medicationList, homeSafetyChecklist, consent } = data;
 
   const allCategoriesSelected = [
@@ -83,7 +92,7 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
   return (
     <div className="space-y-4 pt-4">
       {incomplete.length > 0 ? (
-        <div className="rounded-xl p-4 text-sm bg-yellow-50 text-yellow-800 border border-yellow-200">
+        <div className="rounded-xl p-4 text-sm bg-yellow-50 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800">
           <p className="font-medium mb-2">The following sections need attention before submitting:</p>
           <ul className="space-y-1">
             {incomplete.map((item, i) => (
@@ -95,7 +104,7 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
           </ul>
         </div>
       ) : (
-        <div className="rounded-xl p-4 text-sm bg-green-50 text-green-800 border border-green-200">
+        <div className="rounded-xl p-4 text-sm bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800">
           All sections complete. Review the information below and submit.
         </div>
       )}
@@ -112,15 +121,15 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
         <Field label="Goals" value={clientHelpList.goals} />
         {clientHelpList.emergencyContacts.filter(c => c.name).length > 0 && (
           <div className="mt-2">
-            <span className="text-gray-500">Emergency Contacts:</span>
+            <span className="text-gray-500 dark:text-slate-400">Emergency Contacts:</span>
             {clientHelpList.emergencyContacts.filter(c => c.name).map((c, i) => (
-              <div key={i} className="ml-3 text-xs">{c.name} ({c.relationship}) - {c.phone1}</div>
+              <div key={i} className="ml-3 text-xs">{c.name} ({c.relationship}) - {c.phone1}{c.email ? ` - ${c.email}` : ''}</div>
             ))}
           </div>
         )}
         {clientHelpList.doctors.filter(d => d.name).length > 0 && (
           <div className="mt-2">
-            <span className="text-gray-500">Doctors:</span>
+            <span className="text-gray-500 dark:text-slate-400">Doctors:</span>
             {clientHelpList.doctors.filter(d => d.name).map((d, i) => (
               <div key={i} className="ml-3 text-xs">{d.name} ({d.type}) - {d.phone}</div>
             ))}
@@ -134,7 +143,7 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
         <Field label="Primary Diagnosis" value={clientHistory.primaryDiagnosis} />
         {clientHistory.healthHistory.length > 0 && (
           <div className="mt-1">
-            <span className="text-gray-500">Health History:</span>
+            <span className="text-gray-500 dark:text-slate-400">Health History:</span>
             <span className="ml-1">{clientHistory.healthHistory.join(', ')}</span>
           </div>
         )}
@@ -143,14 +152,54 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
         <Field label="Lives Alone" value={clientHistory.livesAlone === 'yes' ? 'Yes' : clientHistory.livesAlone === 'no' ? 'No' : ''} />
         <Field label="Drug Allergies" value={clientHistory.drugAllergies} />
         <Field label="Food Allergies" value={clientHistory.foodAllergies} />
+        {/* Service Preferences */}
+        <Field label="Service Start" value={clientHistory.serviceStartDate} />
+        <Field label="Service Type" value={[
+          clientHistory.overnight && 'Overnight',
+          clientHistory.liveIn && 'Live-in',
+          clientHistory.is24x7 && '24×7',
+        ].filter(Boolean).join(', ') || undefined} />
+        {!clientHistory.is24x7 && !clientHistory.liveIn && clientHistory.serviceDays.length > 0 && (
+          <div className="mt-1">
+            <span className="text-gray-500 dark:text-slate-400">Service Days:</span>
+            <span className="ml-1">{clientHistory.serviceDays.join(', ')}</span>
+            {clientHistory.serviceDays.some(d => clientHistory.daySchedules[d]?.from) && (
+              <div className="ml-3 text-xs space-y-0.5 mt-1">
+                {clientHistory.serviceDays.map(d => {
+                  const sch = clientHistory.daySchedules[d];
+                  return sch?.from ? <div key={d}>{d}: {sch.from} – {sch.to}</div> : null;
+                })}
+              </div>
+            )}
+          </div>
+        )}
+        <Field label="Service Notes" value={clientHistory.servicesPerWeek} />
+        {clientHistory.ehcStaffName && (
+          <>
+            <Field label="EHC Staff" value={clientHistory.ehcStaffName} />
+            <div className="flex items-center gap-2">
+              <span className={`w-3 h-3 rounded-full ${clientHistory.ehcRepSignature ? 'bg-green-500' : 'bg-red-400'}`} />
+              <span className="text-xs">EHC Rep signature: {clientHistory.ehcRepSignature ? 'Signed' : 'Not signed'}</span>
+            </div>
+          </>
+        )}
       </ReviewSection>
 
       {/* Client Assessment */}
       <ReviewSection title="Client Assessment" stepIndex={STEP.assessment} onEdit={onGoToStep} status={hasAssessment ? 'complete' : 'incomplete'}>
         <Field label="Type" value={clientAssessment.assessmentType === 'initial' ? 'Initial' : clientAssessment.assessmentType === 'revised' ? 'Revised' : ''} />
-        <p className="text-gray-500 text-xs mt-1">{allCategoriesSelected.length} items selected across all categories</p>
+        <p className="text-gray-500 dark:text-slate-400 text-xs mt-1">{allCategoriesSelected.length} items selected across all categories</p>
         {allCategoriesSelected.length > 0 && (
-          <p className="text-xs mt-1 text-gray-600">{allCategoriesSelected.slice(0, 10).join(', ')}{allCategoriesSelected.length > 10 ? ` ... and ${allCategoriesSelected.length - 10} more` : ''}</p>
+          <p className="text-xs mt-1 text-gray-600 dark:text-slate-400">{allCategoriesSelected.slice(0, 10).join(', ')}{allCategoriesSelected.length > 10 ? ` ... and ${allCategoriesSelected.length - 10} more` : ''}</p>
+        )}
+        {clientAssessment.ehcStaffName && (
+          <>
+            <Field label="EHC Staff" value={clientAssessment.ehcStaffName} />
+            <div className="flex items-center gap-2">
+              <span className={`w-3 h-3 rounded-full ${clientAssessment.ehcRepSignature ? 'bg-green-500' : 'bg-red-400'}`} />
+              <span className="text-xs">EHC Rep signature: {clientAssessment.ehcRepSignature ? 'Signed' : 'Not signed'}</span>
+            </div>
+          </>
         )}
       </ReviewSection>
 
@@ -161,7 +210,7 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
         ) : (
           <>
             <Field label="Allergies" value={medicationList.medicationAllergies} />
-            <p className="text-gray-500 text-xs">{medicationList.medications.filter(m => m.name).length} medication(s) listed</p>
+            <p className="text-gray-500 dark:text-slate-400 text-xs">{medicationList.medications.filter(m => m.name).length} medication(s) listed</p>
             {medicationList.medications.filter(m => m.name).map((m, i) => (
               <div key={i} className="ml-3 text-xs">{m.name} - {m.dosage} ({m.frequency})</div>
             ))}
@@ -171,7 +220,7 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
 
       {/* Home Safety (now step 4) */}
       <ReviewSection title="Home Safety Checklist" stepIndex={STEP.safety} onEdit={onGoToStep} status={hasSafetySignatures ? 'complete' : 'warning'}>
-        <p className="text-gray-500 text-xs">Safety checklist completed</p>
+        <p className="text-gray-500 dark:text-slate-400 text-xs">Safety checklist completed</p>
         <Field label="Signing Party" value={homeSafetyChecklist.signerName} />
         <div className="flex items-center gap-2 mt-1">
           <span className={`w-3 h-3 rounded-full ${homeSafetyChecklist.clientSignature ? 'bg-green-500' : 'bg-red-400'}`} />
@@ -193,29 +242,73 @@ export function ReviewSubmit({ data, onGoToStep }: Props) {
         </div>
       </ReviewSection>
 
-      {/* Submit */}
-      <div className="pt-4">
+      {/* Export PDF + Submit */}
+      <div className="pt-4 space-y-3">
         <button
           type="button"
-          onClick={() => {
-            if (incomplete.length > 0) {
-              alert(`Please complete the following sections first:\n\n${incomplete.map(i => `• ${i.label}`).join('\n')}`);
-              return;
+          disabled={pdfLoading}
+          onClick={async () => {
+            setPdfLoading(true);
+            try {
+              const { buildAssessmentPdf, getAssessmentFilename } = await import('../../utils/pdf/generatePdf');
+              const doc = await buildAssessmentPdf(data);
+              const filename = getAssessmentFilename(data.clientHelpList.clientName);
+              pdfDocRef.current = doc;
+              setPreview({ blob: doc.output('blob'), filename });
+            } catch (err) {
+              logger.error('PDF generation failed:', err);
+              alert('PDF generation failed. Please try again.');
+            } finally {
+              setPdfLoading(false);
             }
+          }}
+          className="w-full py-3 rounded-xl font-semibold text-sm transition-colors border-2 border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white active:bg-[#15303d] dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white dark:active:bg-slate-500 disabled:opacity-50 disabled:cursor-wait"
+        >
+          {pdfLoading ? 'Generating PDF...' : 'Preview PDF'}
+        </button>
+        <button
+          type="button"
+          disabled={incomplete.length > 0}
+          aria-disabled={incomplete.length > 0 || undefined}
+          onClick={() => {
+            if (incomplete.length > 0) return;
             alert('Assessment submitted successfully! (Backend integration pending)');
           }}
           className={`w-full py-4 rounded-xl font-semibold text-lg transition-colors ${
             incomplete.length > 0
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ? 'bg-gray-300 text-gray-500 dark:bg-slate-600 dark:text-slate-400 cursor-not-allowed'
               : 'bg-amber-600 text-white hover:bg-amber-700 active:bg-amber-800'
           }`}
         >
           Submit Assessment
         </button>
-        <p className="text-xs text-gray-400 text-center mt-2">
-          Once submitted, a PDF copy will be generated for your records.
+        <p className="text-xs text-gray-500 dark:text-slate-400 text-center">
+          Preview PDF generates a local copy. Submit sends to the EHC backend (coming soon).
         </p>
+        {onContinueToContract && (
+          <button
+            type="button"
+            onClick={onContinueToContract}
+            className="w-full py-3 mt-2 rounded-xl font-semibold text-sm transition-colors border-2 border-amber-500 text-amber-600 hover:bg-amber-50 active:bg-amber-100 dark:border-amber-400 dark:text-amber-400 dark:hover:bg-amber-900/30 dark:active:bg-amber-900/50"
+          >
+            Continue to Service Contract &rarr;
+          </button>
+        )}
       </div>
+
+      {preview && (
+        <PdfPreviewModal
+          pdfBlob={preview.blob}
+          filename={preview.filename}
+          onDownload={() => {
+            pdfDocRef.current?.save(preview.filename);
+          }}
+          onClose={() => {
+            setPreview(null);
+            pdfDocRef.current = null;
+          }}
+        />
+      )}
     </div>
   );
 }

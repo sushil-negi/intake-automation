@@ -1,7 +1,80 @@
 @import "tailwindcss";
 
+/* Dark mode variant — Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* CSS custom properties for theming */
+:root {
+  --bg-primary: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border-primary: #e5e7eb;
+  --border-input: #d1d5db;
+}
+
+.dark {
+  --bg-primary: #0f172a;
+  --bg-card: #1e293b;
+  --bg-input: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-primary: #334155;
+  --border-input: #475569;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: #f8fafc;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ===== Print-friendly styles ===== */
+@media print {
+  /* Hide non-content elements */
+  header,
+  footer,
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Remove watermark background */
+  .fixed.inset-0.pointer-events-none {
+    display: none !important;
+  }
+
+  /* Remove background color and fixed positioning */
+  body {
+    background-color: #fff !important;
+    color: #000 !important;
+    min-height: auto;
+  }
+
+  /* Let content flow naturally */
+  main {
+    padding-bottom: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Remove shadows and borders that don't print well */
+  .shadow-md, .shadow-lg {
+    box-shadow: none !important;
+  }
+
+  /* Ensure form cards have visible borders */
+  .rounded-xl {
+    break-inside: avoid;
+  }
+
+  /* Signatures should print */
+  img[alt*="signature" i],
+  img[alt*="Signature" i] {
+    max-width: 200px;
+    height: auto;
+  }
 }

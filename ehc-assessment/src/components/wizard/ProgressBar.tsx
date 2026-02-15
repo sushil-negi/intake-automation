@@ -11,42 +11,58 @@ export function ProgressBar({ currentStep, totalSteps, steps, onStepClick }: Pro
   return (
     <div className="w-full">
       {/* Progress bar */}
-      <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+      <div
+        className="w-full bg-white/15 rounded-full h-1.5 mb-3 sm:mb-4"
+        role="progressbar"
+        aria-valuenow={currentStep + 1}
+        aria-valuemin={1}
+        aria-valuemax={totalSteps}
+        aria-label={`Step ${currentStep + 1} of ${totalSteps}`}
+      >
         <div
-          className="bg-amber-600 h-2 rounded-full transition-all duration-300"
-          style={{ width: `${progress}%` }}
+          className="h-1.5 rounded-full transition-all duration-300"
+          style={{ width: `${progress}%`, backgroundColor: '#e8a838' }}
         />
       </div>
 
-      {/* Step indicators */}
-      <div className="flex justify-between gap-1">
-        {steps.map((step, index) => (
-          <button
-            key={index}
-            onClick={() => onStepClick(index)}
-            className={`flex flex-col items-center min-w-0 flex-1 cursor-pointer group ${
-              index <= currentStep ? 'text-amber-700' : 'text-gray-400'
-            }`}
-          >
-            <div
-              className={`w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-all ${
-                index === currentStep
-                  ? 'bg-amber-600 text-white border-amber-600'
-                  : index < currentStep
-                  ? 'bg-amber-100 text-amber-700 border-amber-300'
-                  : 'bg-gray-100 text-gray-400 border-gray-300'
-              } group-hover:scale-110`}
+      {/* Step indicators — compact dots on mobile, full labels on sm+ */}
+      <nav aria-label="Form steps">
+        <div className="flex justify-between gap-1">
+          {steps.map((step, index) => (
+            <button
+              key={index}
+              onClick={() => onStepClick(index)}
+              aria-label={`Step ${index + 1}: ${step.shortTitle}${index < currentStep ? ' (completed)' : index === currentStep ? ' (current)' : ''}`}
+              aria-current={index === currentStep ? 'step' : undefined}
+              className={`flex flex-col items-center min-w-0 flex-1 cursor-pointer group ${
+                index <= currentStep ? 'text-white' : 'text-white/90'
+              }`}
             >
-              {index < currentStep ? '✓' : index + 1}
-            </div>
-            <span className={`text-xs mt-1 text-center leading-tight truncate w-full px-0.5 sm:px-1 ${
-              index === currentStep ? 'block' : 'hidden sm:block'
-            }`}>
-              {step.shortTitle}
-            </span>
-          </button>
-        ))}
-      </div>
+              {/* Compact dot on mobile, numbered circle on sm+ */}
+              <div
+                className={`
+                  w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center
+                  text-[10px] sm:text-sm font-medium border-2 transition-all
+                  ${index === currentStep
+                    ? 'text-white border-white/80'
+                    : index < currentStep
+                    ? 'text-white/90 border-white/30 bg-white/10'
+                    : 'text-white/90 border-white/25'
+                  } group-hover:scale-110
+                `}
+                style={index === currentStep ? { backgroundColor: '#8a6212' } : undefined}
+              >
+                {index < currentStep ? '✓' : index + 1}
+              </div>
+              <span className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 text-center leading-tight truncate w-full px-0.5 sm:px-1 ${
+                index === currentStep ? 'block' : 'hidden sm:block'
+              }`}>
+                {step.shortTitle}
+              </span>
+            </button>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

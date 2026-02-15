@@ -1,10 +1,17 @@
+import { useEffect } from 'react';
 import { TextInput, TextArea, SectionHeader, ThreeWayToggle } from '../ui/FormFields';
 import { SignaturePad } from '../ui/SignaturePad';
 import type { HomeSafetyChecklistData, SafetyAnswer, SafetyItem } from '../../types/forms';
 
+interface CrossFormContext {
+  oxygenInHome: 'yes' | 'no' | '';
+}
+
 interface Props {
   data: HomeSafetyChecklistData;
   onChange: (data: Partial<HomeSafetyChecklistData>) => void;
+  crossFormContext?: CrossFormContext;
+  errors?: Record<string, string>;
 }
 
 // concernAnswer: which answer triggers a flag + note prompt
@@ -246,7 +253,35 @@ const RECOMMENDATIONS: Record<string, string> = {
   medicationStation: 'Consider setting up a Medication Station service',
 };
 
-export function HomeSafetyChecklist({ data, onChange }: Props) {
+// Items that should auto-set to N/A when oxygen is NOT in the home
+const OXYGEN_AUTO_NA: { id: string; section: keyof HomeSafetyChecklistData }[] = [
+  { id: 'oxygenUse', section: 'general' },
+  { id: 'oxygenTubing', section: 'medicalEquipment' },
+];
+
+export function HomeSafetyChecklist({ data, onChange, crossFormContext, errors }: Props) {
+  const noOxygen = crossFormContext?.oxygenInHome === 'no';
+
+  // Force oxygen-related items to N/A when no oxygen in the home
+  // This ensures stale data (e.g. previously answered 'yes') is corrected
+  useEffect(() => {
+    if (!noOxygen) return;
+    const updates: Partial<HomeSafetyChecklistData> = {};
+    for (const { id, section } of OXYGEN_AUTO_NA) {
+      const sectionData = (data[section] as Record<string, SafetyItem>) || {};
+      const existing = sectionData[id];
+      if (!existing || existing.answer !== 'na') {
+        updates[section] = {
+          ...(updates[section] as Record<string, SafetyItem> || sectionData),
+          [id]: { answer: 'na' as SafetyAnswer, note: '' },
+        } as HomeSafetyChecklistData[typeof section];
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      onChange(updates);
+    }
+  }, [noOxygen]);
+
   const getItemData = (sectionData: Record<string, SafetyItem>, itemId: string): SafetyItem => {
     const raw = sectionData[itemId];
     if (raw && typeof raw === 'object' && 'answer' in raw) return raw;
@@ -259,7 +294,7 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
 
   const updateAnswer = (section: keyof HomeSafetyChecklistData, itemId: string, value: SafetyAnswer) => {
     const current = (data[section] as Record<string, SafetyItem>) || {};
-    const existing = current[itemId] || { answer: '', note: '' };
+    const existing = getItemData(current, itemId);
     // Keep note only when switching to the concern answer; clear otherwise
     const note = isConcernAnswer(itemId, value) ? existing.note : '';
     onChange({ [section]: { ...current, [itemId]: { answer: value, note } } });
@@ -267,8 +302,8 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
 
   const updateNote = (section: keyof HomeSafetyChecklistData, itemId: string, note: string) => {
     const current = (data[section] as Record<string, SafetyItem>) || {};
-    const existing = current[itemId] || { answer: '', note: '' };
-    onChange({ [section]: { ...current, [itemId]: { ...existing, note } } });
+    const existing = getItemData(current, itemId);
+    onChange({ [section]: { ...current, [itemId]: { answer: existing.answer, note } } });
   };
 
   const bulkSetSection = (section: SafetySection, value: SafetyAnswer) => {
@@ -286,14 +321,14 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
   return (
     <div className="space-y-6 pt-4">
       {/* Client banner — auto-populated from Step 1 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex flex-wrap gap-x-3 sm:gap-x-6 gap-y-1 text-sm">
-        <span><span className="text-gray-500">Client:</span> <span className="font-medium text-gray-900">{data.clientName || '—'}</span></span>
-        <span><span className="text-gray-500">Age:</span> <span className="font-medium text-gray-900">{data.age || '—'}</span></span>
-        <span><span className="text-gray-500">Address:</span> <span className="font-medium text-gray-900">{data.clientAddress || '—'}</span></span>
-        <span><span className="text-gray-500">Assessment Date:</span> <span className="font-medium text-gray-900">{data.date || '—'}</span></span>
+      <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-3 flex flex-wrap gap-x-3 sm:gap-x-6 gap-y-1 text-sm">
+        <span><span className="text-gray-500 dark:text-slate-400">Client:</span> <span className="font-medium text-gray-900 dark:text-slate-100">{data.clientName || '—'}</span></span>
+        <span><span className="text-gray-500 dark:text-slate-400">Age:</span> <span className="font-medium text-gray-900 dark:text-slate-100">{data.age || '—'}</span></span>
+        <span><span className="text-gray-500 dark:text-slate-400">Address:</span> <span className="font-medium text-gray-900 dark:text-slate-100">{data.clientAddress || '—'}</span></span>
+        <span><span className="text-gray-500 dark:text-slate-400">Assessment Date:</span> <span className="font-medium text-gray-900 dark:text-slate-100">{data.date || '—'}</span></span>
       </div>
 
-      <p className="text-sm text-gray-500 italic bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+      <p className="text-sm text-gray-500 dark:text-slate-400 italic bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-3 border border-yellow-200 dark:border-yellow-700">
         This is not meant to be a substitute for a professional safety inspection, it's a guide.
         Use the section buttons to set all items at once, then adjust individual exceptions.
         Flagged items will prompt for a brief note.
@@ -319,15 +354,15 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
               title={section.title}
               subtitle={`${answeredCount} of ${section.items.length} answered${flaggedCount > 0 ? ` \u00b7 ${flaggedCount} flagged` : ''}`}
             />
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
               {/* Bulk action bar */}
-              <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200 gap-2 sm:gap-3">
-                <span className="text-xs font-medium text-gray-500">Set all items:</span>
+              <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-slate-700/50 border-b border-gray-200 dark:border-slate-700 gap-2 sm:gap-3">
+                <span className="text-xs font-medium text-gray-500 dark:text-slate-400">Set all items:</span>
                 <div className="flex flex-wrap gap-1.5">
                   {([
-                    { val: 'yes' as const, label: 'All Yes', active: 'bg-green-100 text-green-700 border-green-400', idle: 'bg-white text-gray-500 border-gray-200 hover:border-green-300 hover:text-green-600' },
-                    { val: 'no' as const, label: 'All No', active: 'bg-red-100 text-red-700 border-red-400', idle: 'bg-white text-gray-500 border-gray-200 hover:border-red-300 hover:text-red-600' },
-                    { val: 'na' as const, label: 'All N/A', active: 'bg-gray-200 text-gray-600 border-gray-400', idle: 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-600' },
+                    { val: 'yes' as const, label: 'All Yes', active: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-400', idle: 'bg-white dark:bg-slate-800 text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-600 hover:border-green-300 hover:text-green-600' },
+                    { val: 'no' as const, label: 'All No', active: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-400', idle: 'bg-white dark:bg-slate-800 text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-600 hover:border-red-300 hover:text-red-600' },
+                    { val: 'na' as const, label: 'All N/A', active: 'bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-slate-300 border-gray-400', idle: 'bg-white dark:bg-slate-800 text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-600 hover:border-gray-400 hover:text-gray-600' },
                   ]).map(opt => (
                     <button
                       key={opt.val}
@@ -343,7 +378,7 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
                     <button
                       type="button"
                       onClick={() => clearSection(section)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-all cursor-pointer min-h-[44px]"
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium border border-gray-200 dark:border-slate-600 text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 hover:border-gray-300 dark:hover:border-slate-500 transition-all cursor-pointer min-h-[44px]"
                     >
                       Clear
                     </button>
@@ -355,15 +390,16 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
                 {section.items.map(item => {
                   const itemData = getItemData(sectionData, item.id);
                   return (
-                    <ThreeWayToggle
-                      key={item.id}
-                      label={item.label}
-                      value={itemData.answer}
-                      note={itemData.note}
-                      concernAnswer={item.concernAnswer}
-                      onChange={val => updateAnswer(section.key, item.id, val)}
-                      onNoteChange={note => updateNote(section.key, item.id, note)}
-                    />
+                    <div key={item.id}>
+                      <ThreeWayToggle
+                        label={item.label}
+                        value={itemData.answer}
+                        note={itemData.note}
+                        concernAnswer={item.concernAnswer}
+                        onChange={val => updateAnswer(section.key, item.id, val)}
+                        onNoteChange={note => updateNote(section.key, item.id, note)}
+                      />
+                    </div>
                   );
                 })}
               </div>
@@ -398,36 +434,36 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
         };
 
         return (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
             {flagged.length === 0 ? (
               <div className="px-4 py-6 text-center">
-                <span className="text-green-600 text-sm font-medium">No concerns flagged</span>
-                <p className="text-xs text-gray-400 mt-1">Recommendations will appear here when safety items are flagged above.</p>
+                <span className="text-green-600 dark:text-green-400 text-sm font-medium">No concerns flagged</span>
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">Recommendations will appear here when safety items are flagged above.</p>
               </div>
             ) : (
               <>
-                <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-red-50 border-b border-red-200 gap-2">
-                  <span className="text-sm font-medium text-red-700">{flagged.length} item{flagged.length !== 1 ? 's' : ''} need attention</span>
+                <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-red-50 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 gap-2">
+                  <span className="text-sm font-medium text-red-700 dark:text-red-300">{flagged.length} item{flagged.length !== 1 ? 's' : ''} need attention</span>
                   <button
                     type="button"
                     onClick={copyToNotes}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-300 text-red-600 bg-white hover:bg-red-50 transition-all cursor-pointer min-h-[44px]"
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/40 transition-all cursor-pointer min-h-[44px]"
                   >
                     Copy to Notes
                   </button>
                 </div>
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-gray-100 dark:divide-slate-700">
                   {flagged.map((f, i) => (
                     <li key={i} className="px-4 py-2.5 flex flex-col gap-0.5">
                       <div className="flex items-start gap-2">
-                        <span className="text-red-400 text-xs mt-0.5">&#9679;</span>
+                        <span className="text-red-400 dark:text-red-500 text-xs mt-0.5">&#9679;</span>
                         <div className="flex-1">
-                          <span className="text-sm text-gray-800">{f.recommendation}</span>
-                          <span className="text-xs text-gray-400 ml-2">({f.section})</span>
+                          <span className="text-sm text-gray-800 dark:text-slate-200">{f.recommendation}</span>
+                          <span className="text-xs text-gray-500 dark:text-slate-400 ml-2">({f.section})</span>
                         </div>
                       </div>
                       {f.note && (
-                        <p className="text-xs text-gray-500 italic ml-4">Note: {f.note}</p>
+                        <p className="text-xs text-gray-500 dark:text-slate-400 italic ml-4">Note: {f.note}</p>
                       )}
                     </li>
                   ))}
@@ -459,6 +495,10 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
             label="Client / Consumer Signature"
             value={data.clientSignature}
             onChange={val => onChange({ clientSignature: val })}
+            signerRole="Client/Consumer"
+            metadata={data.clientSignatureMeta}
+            onMetadataChange={meta => onChange({ clientSignatureMeta: meta })}
+            error={errors?.clientSignature}
           />
         </div>
         <div className="space-y-4">
@@ -472,6 +512,10 @@ export function HomeSafetyChecklist({ data, onChange }: Props) {
             label="EHC Representative Signature"
             value={data.representativeSignature}
             onChange={val => onChange({ representativeSignature: val })}
+            signerRole="EHC Representative"
+            metadata={data.representativeSignatureMeta}
+            onMetadataChange={meta => onChange({ representativeSignatureMeta: meta })}
+            error={errors?.representativeSignature}
           />
         </div>
       </div>

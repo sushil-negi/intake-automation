@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
 
-export function useFormWizard(totalSteps: number) {
-  const [currentStep, setCurrentStep] = useState(0);
+export function useFormWizard(totalSteps: number, initialStep?: number) {
+  const [currentStep, setCurrentStep] = useState(
+    initialStep != null && initialStep >= 0 && initialStep < totalSteps ? initialStep : 0
+  );
 
   const goNext = useCallback(() => {
     setCurrentStep(prev => Math.min(prev + 1, totalSteps - 1));
