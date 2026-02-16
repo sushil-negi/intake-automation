@@ -16,5 +16,5 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 ## Commands
 - **Dev server:** `npx vite --host` (port 5173)
 - **TypeScript check:** `npx tsc --noEmit`
-- **Unit tests:** `npx vitest run` (238 tests, 18 files)
+- **Unit tests:** `npx vitest run` (487 tests, 35 files)
 - **E2E tests:** `npx playwright test` (16 tests: 11 smoke + 5 accessibility)
