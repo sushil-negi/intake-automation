@@ -461,7 +461,9 @@ All remaining EPIC 19 (HIPAA) and EPIC 20 (UI/UX) stories completed:
 - Dev tooling: netlify-cli, Vite proxy, .env documentation
 - Environment variable documentation in .env.example (all 14 Netlify env vars)
 - Production sender: snegi@executivehomecare.com (verified in Resend)
-- Tests: 450/450 unit (32 files) — 27 new tests added
+- Tests: 487/487 unit (35 files) — 37 new tests added
+- Email customization: configurable subject/body templates per type, {clientName}/{date}/{staffName} placeholders, default CC, email signature, HTML formatting toggle, Settings UI. DB v5→v6 (emailConfig store). escapeHtml() XSS prevention. Server-side subject/body size limits. Client-side maxLength validation.
+- Draft duplicate fix: clearDraft() debounce cancellation, Dashboard auto-rescue dedup guard, setCurrentDraftId(null) on new assessment/contract
 
 ### Future — Backend + Roles + Advanced
 - 7.1 User roles & permissions (admin/nurse/family) → subsumed by EPIC-23.6 (RBAC)
@@ -517,7 +519,7 @@ All remaining EPIC 19 (HIPAA) and EPIC 20 (UI/UX) stories completed:
 - Environment vars: `RESEND_API_KEY` (required), `EHC_EMAIL_FROM` (optional, default `noreply@ehcassessment.com`)
 - Production sender: `snegi@executivehomecare.com` (verified in Resend)
 - Dev setup: `npm run dev:functions` (port 9999) + `npm run dev` (Vite proxy on 5173)
-- 27 new tests: 14 emailApi + 13 emailComposeModal (total: 450 tests across 32 files)
+- 37 new tests total (total: 487 tests across 35 files)
 - Netlify function 6MB body limit → max attachment capped at 5.5MB base64 (~4MB PDF)
 
 ---

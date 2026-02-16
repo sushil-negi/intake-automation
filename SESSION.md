@@ -32,7 +32,7 @@
 - **Offline Storage:** localStorage (auto-save), IndexedDB (drafts + sync queue)
 - **Build Tool:** Vite
 - **Package Manager:** npm
-- **Testing:** Vitest + jsdom (238 unit tests, 18 files) + Playwright + axe-core (16 E2E tests)
+- **Testing:** Vitest + jsdom (487 unit tests, 35 files) + Playwright + axe-core (16 E2E tests)
 
 ---
 
@@ -46,10 +46,11 @@
 **Security:** AES-GCM encryption (localStorage + IndexedDB + credentials + sync queue), CSV injection prevention, HMAC audit log integrity, 8hr session expiry — COMPLETE
 **HIPAA:** Granular consent checkboxes with timestamps (assessment + contract), consent audit trail, data retention auto-purge, PHI sanitization in audit logs — COMPLETE
 **Audit Logging:** Full audit trail (29 actions incl. consent_grant/consent_revoke) in IndexedDB with HMAC integrity, CSV export — COMPLETE
+**Email PDF:** Resend API via Netlify Function, EmailComposeModal with focus trap, configurable subject/body templates per document type, `{clientName}/{date}/{staffName}` placeholders, default CC auto-fill, email signature, branded HTML formatting (table-based layout, EHC brand colors), PHI redaction in audit logs, rate limiting (5/min/IP), max 4MB PDF — COMPLETE
 **Accessibility:** WCAG AA contrast, required indicators, heading hierarchy, error icons, aria-live, focus traps, automated axe-core WCAG testing in CI — COMPLETE
 **Go-Live Audit:** v2 (27 findings resolved) + v3 (13 more fixes) + v4 (11 findings: 10 resolved, 1 accepted risk) + v5 (2 warnings resolved: source maps disabled, stable signature lib) + v6 (automated WCAG testing, contrast fix) — READY (0 blockers, 0 warnings)
 **Documentation:** README.md, CONTRIBUTING.md, docs/SECURITY.md, docs/HIPAA.md, docs/DEPLOYMENT.md, docs/GOOGLE-SHEETS-SETUP.md
-**Tests:** 238/238 unit (18 files) + 16/16 E2E (Playwright: 11 smoke + 5 accessibility)
+**Tests:** 487/487 unit (35 files) + 16/16 E2E (Playwright: 11 smoke + 5 accessibility)
 **TypeScript:** Clean (`tsc --noEmit` zero errors)
 **Codebase:** 108 source files (47 components, 8 hooks, 47 utils), ~18,900 lines
 **Dev Server:** `npm run dev` → localhost:5173
@@ -119,6 +120,8 @@
 | 2026-02-14 | Session 35 | **Contract import + PDF data quality fixes + full PDF audit + doc consolidation.** (1) **Contract import (plan: inherited-discovering-wind.md):** Implemented `unflattenContractData()` in contractExportData.ts — reverse of flattenContractData(). Added Assessment/Contract toggle in SettingsScreen Load from Sheet. 12 new round-trip tests. (2) Fixed "no" appearing in Service Days — added VALID_DAYS whitelist filter in pdfClientHistory.ts and REJECT list in exportData.ts for Google Sheets import. (3) Restored formatTime and per-day hours display in Client History PDF (Section 2) after accidental removal. (4) Fixed corrupted assessment category data in Client Needs Assessment PDF (Section 3) — day names, times, and boolean values leaked into category arrays from Google Sheets column misalignment. Added REJECT_VALUES + TIME_RE filters in both pdfClientAssessment.ts (render-time) and exportData.ts (import-time). (5) Completed full audit of all 17 PDF files (assessment + contract) — no additional spacing/layout issues found. (6) Documentation consolidation: updated MEMORY.md (HEADER_HEIGHT 42→35, test count 226→238, PDF patterns), CLAUDE.md (test count), SESSION.md, BACKLOG.md, GO-LIVE-AUDIT.md. Tests: 238/238 unit (18 files). |
 | 2026-02-14 | Session 36 | **Automated WCAG AA accessibility testing.** (1) Installed `@axe-core/playwright` — axe-core integration for Playwright E2E tests. (2) Created `e2e/accessibility.spec.ts` — 5 WCAG 2.1 AA tests scanning Dashboard, Assessment Step 1, Assessment Step 1 with validation errors, Service Contract Step 1, Settings. Uses `expectNoViolations()` helper with pretty-print debugging. (3) **Color contrast fix:** axe-core detected amber `#d4912a` with white text had only 2.66:1 contrast ratio (WCAG AA requires 4.5:1). Darkened to `#8a6212` (~5.9:1 ratio) across 4 components: WizardShell Continue button, ProgressBar active step dot, DashboardCard badge accent, SettingsScreen Sync All Drafts button. (4) Known Limitation #5 (no automated WCAG testing in CI) eliminated — axe-core tests auto-run via Playwright in CI. **Tests:** 238/238 unit + 16/16 E2E (11 smoke + 5 accessibility). TypeScript clean. |
 | 2026-02-12 | Session 33 | **Sprint 19 — Feature Completion (6 stories + optimization).** All remaining EPIC 19 + EPIC 20 backlog stories implemented. (1) **20.4 Draft Search & Filter:** Added type filter (`all`/`assessment`/`serviceContract`), sort dropdown (`newest`/`oldest`/`name`), combined filtering in DraftManager. Single sorted list replaces split sections. Type badge per card. (2) **19.3 Minimum Necessary Export Filters:** Created `ExportPrivacyConfig` interface with 7 PHI category toggles (names, addresses, phones, DOB, emails, insurance, signatures). Extracted shared `phiFieldDetection.ts` from sheetsApi.ts. Created `exportFilters.ts` with `applyExportFilters()`. Wired into CSV/JSON exports. Export Privacy section in Settings. 11 tests. (3) **19.4 BAA Documentation & HIPAA Compliance Checklist:** Added HIPAA Compliance accordion in Settings with 7 read-only status indicators (AES-256, PHI masking, audit logging, session expiry, auto-purge, CSP+HSTS, no external transmission), BAA date/notes fields, and "What this app does NOT provide" section. (4) **20.6 Signature UX Improvements:** Taller signature canvas (`h-[160px] sm:h-[200px]`), undo-last-stroke button with stroke history via `sigRef.current.toData()/fromData()`, undo visibility gated on draw mode + stroke count. (5) **20.10 Keyboard Navigation:** Created `ToggleCardGroup.tsx` wrapper with ArrowUp/Down key handler, `data-toggle-card` attribute on ToggleCard buttons, wrapped groups in ClientAssessment. (6) **20.5 Dark Mode (largest):** Created `useDarkMode` hook (system/light/dark modes, localStorage `ehc-theme`, `.dark` class on `<html>`, matchMedia listener). Created `ThemeToggle.tsx` (☀️/🌙/🖥️ cycle button). Added `@custom-variant dark` + CSS custom properties to index.css. Applied `dark:` classes to 13+ components (FormFields, AccordionSection, ToggleCard, CategoryCard, WizardShell, Dashboard, DashboardCard, ConfirmDialog, DraftManager, LoadingSpinner, SettingsScreen, ProgressBar). Consistent slate palette: `dark:bg-slate-800/900`, `dark:text-slate-100/300/400`, `dark:border-slate-600/700`. 6 dark mode tests. (7) **AddressAutocomplete optimization:** AbortController for stale request cancellation, LRU query cache (20 entries), reduced debounce 350→300ms, reduced timeout 4→3s, useCallback memoization, abort cleanup on unmount, dark mode classes. **New files:** `useDarkMode.ts`, `ThemeToggle.tsx`, `ToggleCardGroup.tsx`, `phiFieldDetection.ts`, `exportFilters.ts`, `useDarkMode.test.ts`, `exportFilters.test.ts`. **Tests:** 226/226 unit (18 files), TypeScript clean, production build succeeds. |
+| 2026-02-14 | Session 37 | **EPIC-22 Email Customization + Draft Duplicate Fix.** (1) **Email template customization:** Configurable subject/body templates per document type (assessment vs contract) with `{clientName}`, `{date}`, `{staffName}` placeholders (`emailTemplates.ts`). Email config persisted in IndexedDB `emailConfig` store (DB v5→v6). Settings UI: template editors, default CC, email signature, HTML formatting toggle, save/reset buttons. (2) **Branded HTML email template:** Server-side `buildHtmlEmail()` in `email.mts` — table-based layout (600px), EHC brand colors (#1a3a4a header, #d4912a accent), inline CSS. `htmlEnabled` flag on API. (3) **Draft duplicate fix (3 root causes):** (a) `clearDraft()` in useAutoSave.ts now cancels pending debounce timer to prevent write-back race condition. (b) Dashboard auto-rescue dedup guard — checks if matching draft exists in IndexedDB within 60s before creating new. (c) `setCurrentDraftId(null)` added to `handleNewAssessment`/`handleNewContract` to prevent overwriting previous client's draft. (4) **DB v6 migration fix:** Bumped DB_VERSION 5→6 with idempotent `db.objectStoreNames.contains()` guard after user reported "failed to save" when emailConfig store missing. Tests: 487/487 unit (35 files). |
+| 2026-02-16 | Session 38 | **Production hardening & documentation.** (1) **HTML XSS prevention:** Added `escapeHtml()` in `email.mts` — escapes `& < > " '` before `<br>` conversion. Applied to both branded HTML and plain-text email paths. (2) **Server-side size limits:** Subject max 1000 chars, body max 50000 chars — returns 413 if exceeded. (3) **Client-side maxLength:** Settings template inputs: subject `maxLength=200`, body `maxLength=5000`, signature `maxLength=2000`. (4) **Production readiness audit:** Comprehensive 3-agent deep audit across security, test coverage, and email changes. 95→97% confidence. Zero breaking changes confirmed. (5) **Documentation update:** Updated MEMORY.md, SESSION.md, GO-LIVE-AUDIT.md (v8), BACKLOG.md, README.md. Tests: 487/487 unit (35 files), TypeScript clean. |
 
 ---
 
@@ -182,13 +185,14 @@ src/
     wizard/              # Wizard shell, progress bar, step navigation
     forms/               # Assessment form steps (7 components)
     forms/contract/      # Contract form steps (7 components)
-    ui/                  # Shared UI: toggle cards, signature pad, initials, accordion, ThemeToggle, ToggleCardGroup, etc.
+    ui/                  # Shared UI: toggle cards, signature pad, initials, accordion, ThemeToggle, ToggleCardGroup, EmailComposeModal, etc.
   hooks/
     useAutoSave.ts       # Encrypted auto-save (async init, AES-GCM, isLoading gate)
     useDarkMode.ts       # Dark mode hook (system/light/dark, localStorage, .dark class)
     useFormWizard.ts     # Wizard step state management
     useIdleTimeout.ts    # Session idle timeout (activity tracking, warning/timeout)
     useOnlineStatus.ts   # Online/offline detection hook
+    useSheetsSync.ts     # React hook wrapping sheetsApi (sync assessments/contracts to Google Sheets)
     useStepValidation.ts # Zod validation hook: validate(), clearErrors(), errors
   validation/
     schemas.ts           # Assessment Zod schemas (7 steps)
@@ -197,6 +201,7 @@ src/
     navigation.ts        # AppView discriminated union
     forms.ts             # Assessment form interfaces
     serviceContract.ts   # Contract form interfaces (6 sub-interfaces)
+    emailConfig.ts       # Email template config interfaces (per-document templates, signature, HTML toggle)
   utils/
     initialData.ts       # Assessment defaults
     contractInitialData.ts # Contract defaults (includes termsConditions)
@@ -207,7 +212,9 @@ src/
     crypto.ts            # AES-GCM encryption (Web Crypto API, phi + credential keys)
     logger.ts            # __DEV__-gated logger (error/warn/log), dead-code eliminated in prod
     phiFieldDetection.ts # Shared PHI field detection (isNameField, isAddressField, etc.)
-    db.ts                # IndexedDB: drafts (encrypted) + sync queue + auth config
+    emailApi.ts          # Email send client (Resend via Netlify Function, rate limiting, PDF attachment)
+    emailTemplates.ts    # Email template engine ({clientName}/{date}/{staffName} placeholders, per-document defaults)
+    db.ts                # IndexedDB: drafts (encrypted) + sync queue + auth config + emailConfig
     pdf/
       pdfStyles.ts              # Colors, margins, fonts, helpers (HEADER_HEIGHT=35mm)
       generatePdf.ts            # Assessment PDF orchestrator
@@ -246,6 +253,11 @@ src/
     fetchWithTimeout.test.ts      # 3 fetch timeout tests
     useDarkMode.test.ts           # 6 dark mode tests (localStorage, .dark class, matchMedia mock)
     exportFilters.test.ts         # 11 export filter tests (PHI category toggles)
+    emailApi.test.ts              # Email API client tests (send, rate limit, error handling)
+    emailComposeModal.test.ts     # EmailComposeModal component tests (render, focus trap, validation)
+    emailConfig.test.ts           # Email config persistence tests (IndexedDB, defaults, migration)
+    emailTemplates.test.ts        # Email template engine tests (placeholders, per-document defaults)
+    settingsEmailTest.test.ts     # Settings email UI tests (template editors, CC, signature, save/reset)
 ```
 
 ---

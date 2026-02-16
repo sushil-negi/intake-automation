@@ -3,7 +3,7 @@
 **Date:** 2026-02-12
 **Auditor:** Claude (Session 25 — 4 parallel deep-dive agents)
 **App Version:** Post-Sprint 20 (238 unit tests, 16 E2E tests, TypeScript clean)
-**Overall Verdict: READY** — v2: All 27 findings resolved. v3: All 13 findings resolved. v4: All 11 findings resolved. v5: 2 warnings resolved. v6: Automated WCAG testing added. v7: Final 4-agent deep audit confirms **0 BLOCKERS, 6 SHOULD-FIX recommendations (non-blocking).**
+**Overall Verdict: READY** — v2: All 27 findings resolved. v3: All 13 findings resolved. v4: All 11 findings resolved. v5: 2 warnings resolved. v6: Automated WCAG testing added. v7: Final 4-agent deep audit confirms 0 BLOCKERS, 6 SHOULD-FIX. **v8: Email hardening + draft duplicate fix. 487 tests. 0 BLOCKERS.**
 
 ---
 
@@ -37,9 +37,9 @@ The EHC Assessment app has been significantly hardened since the initial audit (
 ## Codebase Snapshot
 
 ```
-Source files:  108 (.ts + .tsx) — 47 components, 8 hooks, 47 utils
-Lines of code: ~18,900
-Unit tests:    238/238 PASS (18 files)
+Source files:  117 (.ts + .tsx) — 48 components, 8 hooks, 53 utils
+Lines of code: ~20,500
+Unit tests:    487/487 PASS (35 files)
 E2E tests:     16/16 PASS (Playwright + Chromium: 11 smoke + 5 accessibility)
 TypeScript:    CLEAN (0 errors, strict mode)
 Prod build:    SUCCESS (PWA SW generated, bundle-split, 1408 KiB precache)
@@ -557,3 +557,59 @@ npm audit:   0 vulnerabilities
 4. `style-src 'unsafe-inline'` in CSP — required by Tailwind v4 runtime
 
 *v7 generated 2026-02-14 — Session 37 final comprehensive 4-agent deep audit*
+
+---
+
+## Go-Live Audit v8 (Session 37-38)
+
+**Date:** 2026-02-16
+**Scope:** Email PDF customization, draft duplicate fix, production hardening
+**Status:** **0 BLOCKERS. APP REMAINS GO-LIVE READY.**
+
+### Changes Audited
+
+| Feature | Files Changed | Risk | Verdict |
+|---------|--------------|------|---------|
+| Email template customization | emailTemplates.ts, emailConfig.ts, db.ts, SettingsScreen.tsx, ReviewSubmit.tsx, ContractReviewSubmit.tsx, DraftManager.tsx | LOW | SAFE — additive, graceful degradation |
+| Branded HTML email template | email.mts (buildHtmlEmail + escapeHtml) | MEDIUM → SAFE | XSS prevented via escapeHtml() |
+| EmailComposeModal + defaultCc | EmailComposeModal.tsx, emailApi.ts | LOW | SAFE — new files, no regressions |
+| Draft duplicate fix | useAutoSave.ts, Dashboard.tsx, AssessmentWizard.tsx, ServiceContractWizard.tsx | LOW | SAFE — ~15 lines, tested |
+| IndexedDB v5→v6 migration | db.ts | MEDIUM → SAFE | Idempotent contains() guard |
+| Server-side size limits | email.mts | LOW | SAFE — subject 1000, body 50000 chars |
+| Client-side maxLength | SettingsScreen.tsx | LOW | SAFE — subject 200, body 5000, sig 2000 |
+
+### Security Hardening Applied
+
+| Item | Description |
+|------|-------------|
+| **HTML entity escaping** | `escapeHtml()` in email.mts escapes `& < > " '` before `<br>` conversion. Applied to both branded and plain-text paths. Prevents XSS in email body. |
+| **Server-side content limits** | Subject max 1000 chars, body max 50000 chars. Returns 413 Payload Too Large. |
+| **Client-side input limits** | `maxLength` on all Settings template inputs: subject (200), body (5000), signature (2000). |
+| **Rate limiting** | Unchanged: 5 emails/min/IP (in-memory). |
+| **PDF size limit** | Unchanged: 4MB (~5.5MB base64). |
+
+### Draft Duplicate Fix
+
+| Root Cause | Fix | Test Coverage |
+|-----------|-----|---------------|
+| Debounce write-back after clearDraft() | Cancel `timeoutRef.current` before localStorage remove | useAutoSave.test.ts — clearDraft debounce cancellation |
+| Dashboard auto-rescue creates duplicates | Dedup guard: skip if matching type+clientName within 60s | Existing auto-rescue tests |
+| handleNewAssessment/Contract keeps old draftId | `setCurrentDraftId(null)` after clearDraft() | Manual verification |
+
+### v8 Verification
+
+```
+TypeScript:  npx tsc --noEmit           → CLEAN (0 errors)
+Unit Tests:  npx vitest run             → 487/487 PASS (35 files)
+E2E Tests:   npx playwright test        → 16/16 PASS (11 smoke + 5 accessibility)
+npm audit:   0 vulnerabilities
+```
+
+### Known Limitations (Unchanged from v7)
+
+1. No BAA with Google for Sheets sync — mitigated by PHI masking via `sanitizeForSync()`
+2. Session token in plaintext sessionStorage — mitigated by CSP + 8hr expiry + tab-scoped
+3. No external error monitoring (Sentry/Datadog) — mitigated by audit log + global error handlers
+4. `style-src 'unsafe-inline'` in CSP — required by Tailwind v4 runtime
+
+*v8 generated 2026-02-16 — Sessions 37-38: email customization, draft dedup fix, production hardening*

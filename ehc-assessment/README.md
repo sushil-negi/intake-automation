@@ -18,6 +18,8 @@ Replaces the 8-page paper assessment packet with a guided, multi-step wizard tha
 - **Audit Logging** — 27 action types with HMAC-SHA256 tamper evidence, CSV export
 - **Draft Management** — Auto-save, IndexedDB draft storage, resume from any device
 - **Data Export** — PDF, CSV, JSON, bulk ZIP export
+- **Email PDF** — Send assessment/contract PDFs directly from the app via Resend API with branded HTML template
+- **Email Templates** — Configurable subject/body templates with {clientName}, {date}, {staffName} placeholders, default CC, signature
 - **WCAG AA Accessible** — Skip navigation, focus traps, aria attributes, 4.5:1 contrast ratios, 44px touch targets
 - 🌙 **Dark Mode** — System/light/dark with auto-detect
 - 🔍 **Draft Search & Filters** — Draft search, type filter, and sort
@@ -43,6 +45,7 @@ Replaces the 8-page paper assessment packet with a guided, multi-step wizard tha
 | E2E Tests | Playwright + Chromium |
 | CI/CD | GitHub Actions |
 | Hosting | Netlify (configured) |
+| Email Delivery | Resend REST API (via Netlify Function) |
 
 ## Quick Start
 
@@ -64,7 +67,7 @@ npm run dev
 # → http://localhost:5173
 
 # Run tests
-npm test              # 415 unit tests
+npm test              # 487 unit tests
 npm run test:e2e      # 16 E2E tests (requires Playwright browsers)
 
 # Type check
@@ -83,6 +86,7 @@ npm run preview       # Preview production build locally
    - Allowed email addresses
    - Idle timeout duration
    - Google Sheets connection (optional)
+   - Email: Set `RESEND_API_KEY` and `EHC_EMAIL_FROM` in Netlify env vars for PDF email delivery
 3. **New Assessment** — start a client intake
 
 > **Note:** Authentication is enabled by default. To use the app without Google OAuth during development, disable `requireAuth` in Settings.
@@ -104,7 +108,7 @@ src/
     wizard/                  # WizardShell, ProgressBar
     forms/                   # 7 assessment form components
     forms/contract/          # 7 contract form components
-    ui/                      # Shared: ToggleCard, CategoryCard, SignaturePad, ThemeToggle, ToggleCardGroup, etc.
+    ui/                      # Shared: ToggleCard, CategoryCard, SignaturePad, ThemeToggle, ToggleCardGroup, EmailComposeModal, etc.
   hooks/
     useAutoSave.ts           # Encrypted auto-save (async init, AES-GCM)
     useFormWizard.ts         # Step navigation state
@@ -120,12 +124,15 @@ src/
     forms.ts                 # Assessment data interfaces
     serviceContract.ts       # Contract data interfaces
     auth.ts                  # AuthUser, AuthConfig
+    emailConfig.ts            # EmailConfig interface + defaults
   utils/
     crypto.ts                # AES-GCM encryption + HMAC integrity
     auditLog.ts              # Audit trail (29 actions, HMAC, CSV export)
-    db.ts                    # IndexedDB: drafts, sync queue, auth config, audit logs
+    db.ts                    # IndexedDB: drafts, sync queue, auth config, audit logs, email config
     logger.ts                # __DEV__-gated logger (dead-code eliminated in prod)
     sheetsApi.ts             # Google Sheets sync + PHI sanitization
+    emailApi.ts               # Email PDF delivery (Resend API client + audit logging)
+    emailTemplates.ts         # Email template placeholder resolution
     googleAuth.ts            # Google Identity Services wrapper
     exportData.ts            # Assessment CSV/JSON/ZIP export
     contractExportData.ts    # Contract CSV/JSON export
@@ -162,6 +169,7 @@ flowchart TB
         PDF["PDF Generation\n(jsPDF)"]
         CSV["CSV / JSON / ZIP"]
         Sheets["Google Sheets\n(PHI sanitized)"]
+        Email["Email PDF\n(Resend API)"]
     end
 
     subgraph Auth ["Authentication"]
@@ -182,6 +190,8 @@ flowchart TB
     ContractWizard --> PDF
     Drafts --> CSV
     Drafts --> Sheets
+    AssessmentWizard --> Email
+    ContractWizard --> Email
     OAuth --> Dashboard
     IdleTimeout --> Dashboard
     SessionExpiry --> Dashboard
@@ -213,7 +223,7 @@ flowchart LR
 ## Testing
 
 ```bash
-npm test                 # Run all 415 unit tests
+npm test                 # Run all 487 unit tests
 npm run test:watch       # Watch mode
 npm run test:e2e         # 16 Playwright E2E tests (smoke + accessibility)
 npx tsc --noEmit         # TypeScript type checking
@@ -221,7 +231,7 @@ npx tsc --noEmit         # TypeScript type checking
 
 ### Test Coverage
 
-**29 test files — 415 unit tests**
+**35 test files — 487 unit tests**
 
 | Suite | Tests | What's Covered |
 |-------|-------|---------------|
@@ -262,6 +272,12 @@ npx tsc --noEmit         # TypeScript type checking
 | assessmentTemplates.test.ts | 11 | Template system |
 | fetchWithTimeout.test.ts | 3 | Fetch timeout utility |
 | logger.test.ts | 4 | Dev-only logging, prod silent |
+| **Email** | | |
+| emailApi.test.ts | 16 | Email send, validation, audit logging, error handling |
+| emailComposeModal.test.ts | 15 | Compose dialog rendering, validation, CC support |
+| emailConfig.test.ts | 5 | IndexedDB persistence, defaults, round-trip |
+| emailTemplates.test.ts | 13 | Placeholder resolution, signature appending |
+| settingsEmailTest.test.ts | 14 | Template editor UI, config save/reset |
 
 ## Deployment
 
