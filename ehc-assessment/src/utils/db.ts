@@ -4,18 +4,21 @@ import type { SheetsConfig } from '../types/sheetsConfig';
 import { DEFAULT_SHEETS_CONFIG } from '../types/sheetsConfig';
 import type { AuthConfig } from '../types/auth';
 import { DEFAULT_AUTH_CONFIG } from '../types/auth';
+import type { EmailConfig } from '../types/emailConfig';
+import { DEFAULT_EMAIL_CONFIG } from '../types/emailConfig';
 import { INITIAL_DATA } from './initialData';
 import { SERVICE_CONTRACT_INITIAL_DATA } from './contractInitialData';
 import { encryptObject, decryptObject, encryptCredential, decryptCredential, encryptString, decryptString, isEncrypted } from './crypto';
 import { logger } from './logger';
 
 const DB_NAME = 'ehc-assessment-db';
-const DB_VERSION = 4;
+const DB_VERSION = 6;
 const DRAFTS_STORE = 'drafts';
 const SYNC_QUEUE_STORE = 'syncQueue';
 const SHEETS_CONFIG_STORE = 'sheetsConfig';
 const AUTH_CONFIG_STORE = 'authConfig';
 export const AUDIT_LOG_STORE = 'auditLogs';
+const EMAIL_CONFIG_STORE = 'emailConfig';
 
 export type DraftType = 'assessment' | 'serviceContract';
 
@@ -72,6 +75,11 @@ export function openDB(): Promise<IDBDatabase> {
         auditStore.createIndex('timestamp', 'timestamp', { unique: false });
         auditStore.createIndex('action', 'action', { unique: false });
         auditStore.createIndex('user', 'user', { unique: false });
+      }
+      if (oldVersion < 6) {
+        if (!db.objectStoreNames.contains(EMAIL_CONFIG_STORE)) {
+          db.createObjectStore(EMAIL_CONFIG_STORE, { keyPath: 'id' });
+        }
       }
     };
 
@@ -349,6 +357,35 @@ export async function saveAuthConfig(config: AuthConfig): Promise<void> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(AUTH_CONFIG_STORE, 'readwrite');
     tx.objectStore(AUTH_CONFIG_STORE).put({ id: 'singleton', ...config });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// --- Email Config ---
+
+export async function getEmailConfig(): Promise<EmailConfig> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(EMAIL_CONFIG_STORE, 'readonly');
+    const request = tx.objectStore(EMAIL_CONFIG_STORE).get('singleton');
+    request.onsuccess = () => {
+      if (request.result) {
+        const { id: _id, ...config } = request.result;
+        resolve({ ...DEFAULT_EMAIL_CONFIG, ...config });
+      } else {
+        resolve({ ...DEFAULT_EMAIL_CONFIG });
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveEmailConfig(config: EmailConfig): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(EMAIL_CONFIG_STORE, 'readwrite');
+    tx.objectStore(EMAIL_CONFIG_STORE).put({ id: 'singleton', ...config });
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });

@@ -106,15 +106,27 @@ export function Dashboard({ onNavigate, authUser, onSignOut, darkMode }: Dashboa
               ? await decryptObject<AssessmentFormData | ServiceContractFormData>(raw)
               : JSON.parse(raw);
             const clientName = await extractClientName(type, raw);
-            await saveDraft({
-              id: crypto.randomUUID(),
-              clientName: clientName || 'Untitled',
-              type,
-              data,
-              lastModified: new Date().toISOString(),
-              status: 'draft',
-            });
-            rescued = true;
+
+            // Dedup: skip rescue if a matching draft was saved recently (within 60s)
+            const existingDrafts = await getAllDrafts();
+            const now = Date.now();
+            const isDuplicate = existingDrafts.some(d =>
+              d.type === type &&
+              d.clientName === (clientName || 'Untitled') &&
+              now - new Date(d.lastModified).getTime() < 60_000,
+            );
+
+            if (!isDuplicate) {
+              await saveDraft({
+                id: crypto.randomUUID(),
+                clientName: clientName || 'Untitled',
+                type,
+                data,
+                lastModified: new Date().toISOString(),
+                status: 'draft',
+              });
+              rescued = true;
+            }
           } catch (err) {
             logger.error('Failed to auto-rescue draft:', err);
           }

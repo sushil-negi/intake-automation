@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AccordionSection } from './ui/AccordionSection';
 import { ConfirmDialog } from './ui/ConfirmDialog';
-import { getSheetsConfig, saveSheetsConfig, getAllDrafts, deleteDraft, saveAuthConfig, saveDraft, type DraftRecord } from '../utils/db';
+import { getSheetsConfig, saveSheetsConfig, getAllDrafts, deleteDraft, saveAuthConfig, saveDraft, getEmailConfig, saveEmailConfig, type DraftRecord } from '../utils/db';
 import { testConnection, readAllRows, rowToFlatMap } from '../utils/sheetsApi';
 import { exportAllDraftsZip, unflattenAssessment } from '../utils/exportData';
 import { unflattenContractData } from '../utils/contractExportData';
@@ -18,6 +18,9 @@ import type { ServiceContractFormData } from '../types/serviceContract';
 import type { AuthConfig } from '../types/auth';
 import { DEFAULT_AUTH_CONFIG } from '../types/auth';
 import type { ConfigSource } from '../types/remoteConfig';
+import { sendPdfEmail, isValidEmail } from '../utils/emailApi';
+import type { EmailConfig } from '../types/emailConfig';
+import { DEFAULT_EMAIL_CONFIG } from '../types/emailConfig';
 
 interface SettingsScreenProps {
   onGoHome: () => void;
@@ -89,6 +92,16 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource }: Settin
   const [retentionDays, setRetentionDays] = useState(90);
   const [purgeResult, setPurgeResult] = useState('');
 
+  // Test email state
+  const [testEmailAddr, setTestEmailAddr] = useState(authUserEmail || '');
+  const [testEmailSending, setTestEmailSending] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  // Email template config state
+  const [emailTemplateConfig, setEmailTemplateConfig] = useState<EmailConfig>(DEFAULT_EMAIL_CONFIG);
+  const [emailConfigSaving, setEmailConfigSaving] = useState(false);
+  const [emailConfigStatus, setEmailConfigStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+
   const refreshDraftCount = useCallback(async () => {
     try {
       const drafts = await getAllDrafts();
@@ -111,6 +124,8 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource }: Settin
         setConfigLoading(false);
       }
     })();
+    // Load email template config
+    getEmailConfig().then(setEmailTemplateConfig).catch(() => {/* use defaults */});
     refreshDraftCount();
   }, [refreshDraftCount]);
 
@@ -136,6 +151,57 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource }: Settin
     const result = await testConnection(config);
     setTestResult(result);
     setTesting(false);
+  };
+
+  const handleTestEmail = async () => {
+    const addr = testEmailAddr.trim();
+    if (!addr || !isValidEmail(addr)) {
+      setTestEmailResult({ ok: false, message: 'Enter a valid email address' });
+      return;
+    }
+    setTestEmailSending(true);
+    setTestEmailResult(null);
+    try {
+      const testBlob = new Blob(['%PDF-1.0 test'], { type: 'application/pdf' });
+      const result = await sendPdfEmail(
+        {
+          to: addr,
+          subject: 'EHC Assessments & Contracts — Test Email',
+          body: 'This is a test email from the EHC Assessments & Contracts app to verify email configuration.\n\nIf you received this message, your email settings are working correctly.',
+          pdfBlob: testBlob,
+          filename: 'test-email-config.pdf',
+        },
+        { documentType: 'Test Email', userEmail: authUserEmail },
+      );
+      setTestEmailResult({
+        ok: result.ok,
+        message: result.ok ? `Test email sent to ${addr}` : result.error || 'Unknown error',
+      });
+    } catch {
+      setTestEmailResult({ ok: false, message: 'Network error — check your connection' });
+    } finally {
+      setTestEmailSending(false);
+    }
+  };
+
+  const handleSaveEmailConfig = async () => {
+    setEmailConfigSaving(true);
+    setEmailConfigStatus('idle');
+    try {
+      await saveEmailConfig(emailTemplateConfig);
+      logAudit('settings_change', 'emailConfig', 'Email templates saved');
+      setEmailConfigStatus('saved');
+      setTimeout(() => setEmailConfigStatus('idle'), 3000);
+    } catch {
+      setEmailConfigStatus('error');
+    } finally {
+      setEmailConfigSaving(false);
+    }
+  };
+
+  const handleResetEmailConfig = () => {
+    setEmailTemplateConfig({ ...DEFAULT_EMAIL_CONFIG });
+    setEmailConfigStatus('idle');
   };
 
   // --- OAuth sign-in ---
@@ -1463,6 +1529,190 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource }: Settin
             </div>
           </AccordionSection>
 
+          {/* Section: Email Configuration — templates, CC, HTML, test */}
+          <AccordionSection title="Email Configuration">
+            <div className="space-y-6">
+
+              {/* --- Assessment Template --- */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-200">Assessment Email Template</h4>
+                <div>
+                  <label htmlFor="email-assessment-subject" className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Subject</label>
+                  <input
+                    id="email-assessment-subject"
+                    type="text"
+                    maxLength={200}
+                    value={emailTemplateConfig.assessmentSubjectTemplate}
+                    onChange={e => setEmailTemplateConfig(prev => ({ ...prev, assessmentSubjectTemplate: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email-assessment-body" className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Body</label>
+                  <textarea
+                    id="email-assessment-body"
+                    rows={4}
+                    maxLength={5000}
+                    value={emailTemplateConfig.assessmentBodyTemplate}
+                    onChange={e => setEmailTemplateConfig(prev => ({ ...prev, assessmentBodyTemplate: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 resize-y"
+                  />
+                </div>
+              </div>
+
+              {/* --- Contract Template --- */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-200">Contract Email Template</h4>
+                <div>
+                  <label htmlFor="email-contract-subject" className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Subject</label>
+                  <input
+                    id="email-contract-subject"
+                    type="text"
+                    maxLength={200}
+                    value={emailTemplateConfig.contractSubjectTemplate}
+                    onChange={e => setEmailTemplateConfig(prev => ({ ...prev, contractSubjectTemplate: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email-contract-body" className="block text-xs font-medium text-gray-600 dark:text-slate-400 mb-1">Body</label>
+                  <textarea
+                    id="email-contract-body"
+                    rows={4}
+                    maxLength={5000}
+                    value={emailTemplateConfig.contractBodyTemplate}
+                    onChange={e => setEmailTemplateConfig(prev => ({ ...prev, contractBodyTemplate: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 resize-y"
+                  />
+                </div>
+              </div>
+
+              {/* --- Placeholder Help --- */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300">
+                <p className="font-medium mb-1">Available Placeholders:</p>
+                <ul className="space-y-0.5 ml-2">
+                  <li><code className="bg-blue-100 dark:bg-blue-800/50 px-1 rounded">{'{clientName}'}</code> — Client name</li>
+                  <li><code className="bg-blue-100 dark:bg-blue-800/50 px-1 rounded">{'{date}'}</code> — Current date</li>
+                  <li><code className="bg-blue-100 dark:bg-blue-800/50 px-1 rounded">{'{staffName}'}</code> — Staff member name</li>
+                </ul>
+              </div>
+
+              {/* --- Default CC --- */}
+              <div>
+                <label htmlFor="email-default-cc" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Default CC Address</label>
+                <input
+                  id="email-default-cc"
+                  type="email"
+                  value={emailTemplateConfig.defaultCc}
+                  onChange={e => setEmailTemplateConfig(prev => ({ ...prev, defaultCc: e.target.value }))}
+                  placeholder="cc@example.com"
+                  className="w-full max-w-sm px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                />
+                <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">Pre-filled in the CC field when composing emails</p>
+              </div>
+
+              {/* --- Email Signature --- */}
+              <div>
+                <label htmlFor="email-signature" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">Email Signature</label>
+                <textarea
+                  id="email-signature"
+                  rows={3}
+                  maxLength={2000}
+                  value={emailTemplateConfig.emailSignature}
+                  onChange={e => setEmailTemplateConfig(prev => ({ ...prev, emailSignature: e.target.value }))}
+                  placeholder="Appended to the end of every email body"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 resize-y"
+                />
+              </div>
+
+              {/* --- HTML Formatting Toggle --- */}
+              <label htmlFor="email-html-toggle" className="flex items-center gap-3 cursor-pointer">
+                <input
+                  id="email-html-toggle"
+                  type="checkbox"
+                  checked={emailTemplateConfig.htmlEnabled}
+                  onChange={e => setEmailTemplateConfig(prev => ({ ...prev, htmlEnabled: e.target.checked }))}
+                  className="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-300 dark:border-slate-600 dark:bg-slate-800"
+                />
+                <span className="text-sm text-gray-700 dark:text-slate-300">Branded HTML formatting</span>
+                <span className="text-xs text-gray-400 dark:text-slate-500">(EHC header, colors, footer)</span>
+              </label>
+
+              {/* --- Save / Reset Buttons --- */}
+              <div className="flex items-center gap-3 pt-2 border-t border-gray-100 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={handleSaveEmailConfig}
+                  disabled={emailConfigSaving}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a3a4a] text-white hover:bg-[#24505f] dark:bg-slate-600 dark:hover:bg-slate-500 transition-all min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {emailConfigSaving ? 'Saving...' : 'Save Templates'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetEmailConfig}
+                  disabled={emailConfigSaving}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700 transition-all min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Reset to Defaults
+                </button>
+                {emailConfigStatus === 'saved' && (
+                  <span className="text-sm text-green-600 dark:text-green-400">Templates saved</span>
+                )}
+                {emailConfigStatus === 'error' && (
+                  <span className="text-sm text-red-600 dark:text-red-400">Failed to save</span>
+                )}
+              </div>
+
+              {/* --- Divider --- */}
+              <hr className="border-gray-200 dark:border-slate-700" />
+
+              {/* --- Test Email (existing) --- */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-slate-200">Test Email</h4>
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Send a test email with a sample PDF attachment to verify your email configuration.
+                </p>
+
+                <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-xs text-gray-500 dark:text-slate-400 space-y-1">
+                  <p><strong>RESEND_API_KEY:</strong> Must be set in Netlify environment variables</p>
+                  <p><strong>EHC_EMAIL_FROM:</strong> Sender address (must use a verified domain in Resend)</p>
+                </div>
+
+                <div>
+                  <label htmlFor="test-email-to" className="block text-xs font-medium text-gray-700 dark:text-slate-300 mb-1">
+                    Recipient Email
+                  </label>
+                  <input
+                    id="test-email-to"
+                    type="email"
+                    value={testEmailAddr}
+                    onChange={e => { setTestEmailAddr(e.target.value); setTestEmailResult(null); }}
+                    placeholder="you@example.com"
+                    disabled={testEmailSending}
+                    className="w-full max-w-sm px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 disabled:opacity-50"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleTestEmail}
+                    disabled={testEmailSending || !testEmailAddr.trim() || !isOnline}
+                    className="px-4 py-2 text-sm font-medium rounded-lg border border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[36px] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {testEmailSending ? 'Sending...' : 'Send Test Email'}
+                  </button>
+                  {testEmailResult && (
+                    <span className={`text-sm ${testEmailResult.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {testEmailResult.message}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </AccordionSection>
+
           </>)}
           {/* End admin-only sections */}
 
@@ -1518,6 +1768,8 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource }: Settin
                   <option value="bulk_sync">Bulk Sync</option>
                   <option value="settings_change">Settings Change</option>
                   <option value="auth_config_change">Auth Config</option>
+                  <option value="email_sent">Email Sent</option>
+                  <option value="email_failed">Email Failed</option>
                   <option value="error">Errors</option>
                 </select>
 

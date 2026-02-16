@@ -275,6 +275,33 @@ describe('useAutoSave — mutations & debounce', () => {
     expect(result.current.lastSaved).toBeNull();
   });
 
+  it('clearDraft cancels pending debounced save (no write-back to localStorage)', async () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useAutoSave<TestData>(INITIAL, STORAGE_KEY));
+
+    // Complete async init
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+
+    // Trigger an update — this schedules a debounced save (500ms)
+    act(() => {
+      result.current.updateData({ sectionA: { name: 'Pending', age: 1 } });
+    });
+
+    // Immediately clear — should cancel the pending debounce
+    act(() => {
+      result.current.clearDraft();
+    });
+
+    // Advance past the debounce window
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
+
+    // localStorage should still be empty — the debounced save was cancelled
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(result.current.isSaving).toBe(false);
+
+    vi.useRealTimers();
+  });
+
   it('logs audit error when encryption fails during save', async () => {
     const { result } = await renderAndInit();
 

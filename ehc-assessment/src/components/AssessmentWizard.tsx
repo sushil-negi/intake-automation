@@ -212,6 +212,7 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
 
   const handleNewAssessment = () => {
     clearDraft();
+    setCurrentDraftId(null);
     wizard.goToStep(0);
     setShowDrafts(false);
   };

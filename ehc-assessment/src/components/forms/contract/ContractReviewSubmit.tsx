@@ -1,7 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { SectionHeader } from '../../ui/FormFields';
 import { PdfPreviewModal } from '../../ui/PdfPreviewModal';
+import { EmailComposeModal } from '../../ui/EmailComposeModal';
 import { logger } from '../../../utils/logger';
+import { getEmailConfig } from '../../../utils/db';
+import { resolveTemplate, resolveEmailBody } from '../../../utils/emailTemplates';
+import type { EmailConfig } from '../../../types/emailConfig';
+import { DEFAULT_EMAIL_CONFIG } from '../../../types/emailConfig';
 import type { ServiceContractFormData } from '../../../types/serviceContract';
 import type { jsPDF } from 'jspdf';
 
@@ -97,6 +102,25 @@ export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId }: P
   const [preview, setPreview] = useState<{ blob: Blob; filename: string } | null>(null);
   const pdfDocRef = useRef<jsPDF | null>(null);
   const [assessmentPdfLoading, setAssessmentPdfLoading] = useState(false);
+
+  // Email state
+  const [showEmailCompose, setShowEmailCompose] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailBlob, setEmailBlob] = useState<{ blob: Blob; filename: string } | null>(null);
+  const [emailStatus, setEmailStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [emailConfig, setEmailConfig] = useState<EmailConfig>(DEFAULT_EMAIL_CONFIG);
+
+  // Load email config
+  useEffect(() => {
+    getEmailConfig().then(setEmailConfig).catch(() => {/* use defaults */});
+  }, []);
+
+  // Auto-dismiss email status after 4 seconds
+  useEffect(() => {
+    if (!emailStatus) return;
+    const timer = setTimeout(() => setEmailStatus(null), 4000);
+    return () => clearTimeout(timer);
+  }, [emailStatus]);
   const { serviceAgreement, termsConditions, consumerRights, directCareWorker, transportationRequest, customerPacket } = data;
 
   // Build customer full name
@@ -369,8 +393,20 @@ export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId }: P
         <Field label="Date" value={customerPacket.acknowledgeDate} />
       </ReviewSection>
 
-      {/* Export PDF */}
+      {/* Export PDF + Email */}
       <div className="pt-4 space-y-3">
+        {emailStatus && (
+          <div
+            role="status"
+            className={`rounded-xl p-3 text-sm font-medium ${
+              emailStatus.type === 'success'
+                ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
+                : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+            }`}
+          >
+            {emailStatus.message}
+          </div>
+        )}
         <button
           type="button"
           disabled={pdfLoading}
@@ -393,6 +429,29 @@ export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId }: P
           className="w-full py-3 rounded-xl font-semibold text-sm transition-colors border-2 border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white active:bg-[#15303d] dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white dark:active:bg-slate-500 disabled:opacity-50 disabled:cursor-wait"
         >
           {pdfLoading ? 'Generating PDF...' : 'Preview PDF'}
+        </button>
+        <button
+          type="button"
+          disabled={pdfLoading || emailSending}
+          onClick={async () => {
+            setPdfLoading(true);
+            try {
+              const { buildContractPdf, getContractFilename } = await import('../../../utils/pdf/generateContractPdf');
+              const doc = await buildContractPdf(data);
+              const name = [serviceAgreement.customerInfo.firstName, serviceAgreement.customerInfo.lastName].filter(Boolean).join(' ') || 'Unknown';
+              const filename = getContractFilename(name);
+              setEmailBlob({ blob: doc.output('blob'), filename });
+              setShowEmailCompose(true);
+            } catch (err) {
+              logger.error('Contract PDF generation failed:', err);
+              alert('PDF generation failed. Please try again.');
+            } finally {
+              setPdfLoading(false);
+            }
+          }}
+          className="w-full py-3 rounded-xl font-semibold text-sm transition-colors border-2 border-amber-500 text-amber-600 hover:bg-amber-50 active:bg-amber-100 dark:border-amber-400 dark:text-amber-400 dark:hover:bg-amber-900/30 dark:active:bg-amber-900/50 disabled:opacity-50 disabled:cursor-wait"
+        >
+          {emailSending ? 'Sending...' : pdfLoading ? 'Generating PDF...' : 'Email PDF'}
         </button>
         {linkedAssessmentId && (
           <button
@@ -459,6 +518,55 @@ export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId }: P
           }}
         />
       )}
+
+      {showEmailCompose && emailBlob && (() => {
+        const templateVars = {
+          clientName: customerName || 'Customer',
+          date: new Date().toLocaleDateString(),
+          staffName: serviceAgreement.ehcRepName || '',
+        };
+        return (
+        <EmailComposeModal
+          defaultSubject={resolveTemplate(emailConfig.contractSubjectTemplate, templateVars)}
+          defaultBody={resolveEmailBody(emailConfig.contractBodyTemplate, templateVars, emailConfig.emailSignature)}
+          defaultCc={emailConfig.defaultCc}
+          sending={emailSending}
+          onSend={async (composeData) => {
+            setEmailSending(true);
+            try {
+              const { sendPdfEmail } = await import('../../../utils/emailApi');
+              const result = await sendPdfEmail(
+                {
+                  to: composeData.to,
+                  cc: composeData.cc || undefined,
+                  subject: composeData.subject,
+                  body: composeData.body,
+                  htmlEnabled: emailConfig.htmlEnabled,
+                  pdfBlob: emailBlob.blob,
+                  filename: emailBlob.filename,
+                },
+                { documentType: 'Service Contract' },
+              );
+              if (result.ok) {
+                setShowEmailCompose(false);
+                setEmailBlob(null);
+                setEmailStatus({ message: `PDF emailed successfully to ${composeData.to}`, type: 'success' });
+              } else {
+                setEmailStatus({ message: `Failed to send email: ${result.error}`, type: 'error' });
+              }
+            } catch {
+              setEmailStatus({ message: 'Failed to send email. Please try again.', type: 'error' });
+            } finally {
+              setEmailSending(false);
+            }
+          }}
+          onClose={() => {
+            setShowEmailCompose(false);
+            setEmailBlob(null);
+          }}
+        />
+        );
+      })()}
     </div>
   );
 }

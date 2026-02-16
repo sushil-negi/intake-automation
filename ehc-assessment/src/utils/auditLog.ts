@@ -28,6 +28,8 @@ export type AuditAction =
   | 'consent_grant'
   | 'consent_revoke'
   | 'data_purge'
+  | 'email_sent'
+  | 'email_failed'
   | 'error';
 
 export interface AuditLogEntry {
@@ -54,6 +56,7 @@ const PHI_PATTERNS: [RegExp, string][] = [
   [/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN-REDACTED]'],       // SSN
   [/(?<!\d)\(\d{3}\)\s?\d{3}-\d{4}\b/g, '[PHONE-REDACTED]'], // Phone (xxx) xxx-xxxx
   [/\b\d{3}-\d{3}-\d{4}\b/g, '[PHONE-REDACTED]'],       // Phone xxx-xxx-xxxx
+  [/\b[\w.-]+@[\w.-]+\.\w{2,}\b/g, '[EMAIL-REDACTED]'],  // Email addresses
 ];
 
 function sanitizeDetails(details: string): string {

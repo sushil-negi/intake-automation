@@ -230,10 +230,16 @@ export function useAutoSave<T>(initialData: T, storageKey = DEFAULT_STORAGE_KEY)
   }, [save]);
 
   const clearDraft = useCallback(() => {
+    // Cancel pending debounced save to prevent write-back after clear
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     localStorage.removeItem(storageKey);
     setData(initialDataRef.current);
     setLastSaved(null);
     setIsDirty(false);
+    setIsSaving(false);
   }, [storageKey]);
 
   const hasDraft = useCallback(() => {

@@ -31,6 +31,7 @@ describe('openDB', () => {
     expect(db.objectStoreNames.contains('sheetsConfig')).toBe(true);
     expect(db.objectStoreNames.contains('authConfig')).toBe(true);
     expect(db.objectStoreNames.contains('auditLogs')).toBe(true);
+    expect(db.objectStoreNames.contains('emailConfig')).toBe(true);
     db.close();
   });
 

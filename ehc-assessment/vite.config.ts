@@ -44,6 +44,16 @@ export default defineConfig({
       html2canvas: resolve(__dirname, 'src/stubs/html2canvas.ts'),
     },
   },
+  server: {
+    proxy: {
+      // Forward /api/* to local Netlify Functions server (npm run dev:functions)
+      // No rewrite needed — functions use `export const config = { path: '/api/...' }`
+      '/api': {
+        target: 'http://localhost:9999',
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     sourcemap: false,
     rollupOptions: {

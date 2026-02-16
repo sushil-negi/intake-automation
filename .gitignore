@@ -2,3 +2,10 @@ node_modules/
 dist/
 .DS_Store
 *.local
+
+# Local Netlify folder
+.netlify
+
+# Environment variables (contain API keys — NEVER commit)
+.env
+.env.local

@@ -27,5 +27,10 @@ dist-ssr
 playwright-report/
 test-results/
 
+# Environment variables (contain API keys — NEVER commit)
+.env
+.env.local
+.env.*.local
+
 # Claude Code session files
 .claude/

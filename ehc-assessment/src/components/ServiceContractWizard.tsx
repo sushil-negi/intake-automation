@@ -180,6 +180,7 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
 
   const handleNewContract = () => {
     clearDraft();
+    setCurrentDraftId(null);
     wizard.goToStep(0);
     setShowDrafts(false);
   };

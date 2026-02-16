@@ -1,7 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { SectionHeader } from '../ui/FormFields';
 import { PdfPreviewModal } from '../ui/PdfPreviewModal';
+import { EmailComposeModal } from '../ui/EmailComposeModal';
 import { logger } from '../../utils/logger';
+import { getEmailConfig } from '../../utils/db';
+import { resolveTemplate, resolveEmailBody } from '../../utils/emailTemplates';
+import type { EmailConfig } from '../../types/emailConfig';
+import { DEFAULT_EMAIL_CONFIG } from '../../types/emailConfig';
 import type { AssessmentFormData } from '../../types/forms';
 import type { jsPDF } from 'jspdf';
 
@@ -63,6 +68,25 @@ export function ReviewSubmit({ data, onGoToStep, onContinueToContract }: Props) 
   const [pdfLoading, setPdfLoading] = useState(false);
   const [preview, setPreview] = useState<{ blob: Blob; filename: string } | null>(null);
   const pdfDocRef = useRef<jsPDF | null>(null);
+
+  // Email state
+  const [showEmailCompose, setShowEmailCompose] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailBlob, setEmailBlob] = useState<{ blob: Blob; filename: string } | null>(null);
+  const [emailStatus, setEmailStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [emailConfig, setEmailConfig] = useState<EmailConfig>(DEFAULT_EMAIL_CONFIG);
+
+  // Load email config
+  useEffect(() => {
+    getEmailConfig().then(setEmailConfig).catch(() => {/* use defaults */});
+  }, []);
+
+  // Auto-dismiss email status after 4 seconds
+  useEffect(() => {
+    if (!emailStatus) return;
+    const timer = setTimeout(() => setEmailStatus(null), 4000);
+    return () => clearTimeout(timer);
+  }, [emailStatus]);
   const { clientHelpList, clientHistory, clientAssessment, medicationList, homeSafetyChecklist, consent } = data;
 
   const allCategoriesSelected = [
@@ -242,8 +266,20 @@ export function ReviewSubmit({ data, onGoToStep, onContinueToContract }: Props) 
         </div>
       </ReviewSection>
 
-      {/* Export PDF + Submit */}
+      {/* Export PDF + Email + Submit */}
       <div className="pt-4 space-y-3">
+        {emailStatus && (
+          <div
+            role="status"
+            className={`rounded-xl p-3 text-sm font-medium ${
+              emailStatus.type === 'success'
+                ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
+                : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+            }`}
+          >
+            {emailStatus.message}
+          </div>
+        )}
         <button
           type="button"
           disabled={pdfLoading}
@@ -265,6 +301,28 @@ export function ReviewSubmit({ data, onGoToStep, onContinueToContract }: Props) 
           className="w-full py-3 rounded-xl font-semibold text-sm transition-colors border-2 border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white active:bg-[#15303d] dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white dark:active:bg-slate-500 disabled:opacity-50 disabled:cursor-wait"
         >
           {pdfLoading ? 'Generating PDF...' : 'Preview PDF'}
+        </button>
+        <button
+          type="button"
+          disabled={pdfLoading || emailSending}
+          onClick={async () => {
+            setPdfLoading(true);
+            try {
+              const { buildAssessmentPdf, getAssessmentFilename } = await import('../../utils/pdf/generatePdf');
+              const doc = await buildAssessmentPdf(data);
+              const filename = getAssessmentFilename(data.clientHelpList.clientName);
+              setEmailBlob({ blob: doc.output('blob'), filename });
+              setShowEmailCompose(true);
+            } catch (err) {
+              logger.error('PDF generation failed:', err);
+              alert('PDF generation failed. Please try again.');
+            } finally {
+              setPdfLoading(false);
+            }
+          }}
+          className="w-full py-3 rounded-xl font-semibold text-sm transition-colors border-2 border-amber-500 text-amber-600 hover:bg-amber-50 active:bg-amber-100 dark:border-amber-400 dark:text-amber-400 dark:hover:bg-amber-900/30 dark:active:bg-amber-900/50 disabled:opacity-50 disabled:cursor-wait"
+        >
+          {emailSending ? 'Sending...' : pdfLoading ? 'Generating PDF...' : 'Email PDF'}
         </button>
         <button
           type="button"
@@ -309,6 +367,55 @@ export function ReviewSubmit({ data, onGoToStep, onContinueToContract }: Props) 
           }}
         />
       )}
+
+      {showEmailCompose && emailBlob && (() => {
+        const templateVars = {
+          clientName: clientHelpList.clientName || 'Client',
+          date: new Date().toLocaleDateString(),
+          staffName: clientHistory.ehcStaffName || '',
+        };
+        return (
+        <EmailComposeModal
+          defaultSubject={resolveTemplate(emailConfig.assessmentSubjectTemplate, templateVars)}
+          defaultBody={resolveEmailBody(emailConfig.assessmentBodyTemplate, templateVars, emailConfig.emailSignature)}
+          defaultCc={emailConfig.defaultCc}
+          sending={emailSending}
+          onSend={async (composeData) => {
+            setEmailSending(true);
+            try {
+              const { sendPdfEmail } = await import('../../utils/emailApi');
+              const result = await sendPdfEmail(
+                {
+                  to: composeData.to,
+                  cc: composeData.cc || undefined,
+                  subject: composeData.subject,
+                  body: composeData.body,
+                  htmlEnabled: emailConfig.htmlEnabled,
+                  pdfBlob: emailBlob.blob,
+                  filename: emailBlob.filename,
+                },
+                { documentType: 'Assessment' },
+              );
+              if (result.ok) {
+                setShowEmailCompose(false);
+                setEmailBlob(null);
+                setEmailStatus({ message: `PDF emailed successfully to ${composeData.to}`, type: 'success' });
+              } else {
+                setEmailStatus({ message: `Failed to send email: ${result.error}`, type: 'error' });
+              }
+            } catch {
+              setEmailStatus({ message: 'Failed to send email. Please try again.', type: 'error' });
+            } finally {
+              setEmailSending(false);
+            }
+          }}
+          onClose={() => {
+            setShowEmailCompose(false);
+            setEmailBlob(null);
+          }}
+        />
+        );
+      })()}
     </div>
   );
 }

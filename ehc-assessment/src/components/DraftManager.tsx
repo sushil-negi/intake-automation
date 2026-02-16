@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
-import { getAllDrafts, deleteDraft, saveDraft, type DraftRecord } from '../utils/db';
+import { getAllDrafts, deleteDraft, saveDraft, getEmailConfig, type DraftRecord } from '../utils/db';
 import { exportJSON, exportCSV, importJSON, exportAllDraftsZip } from '../utils/exportData';
 import { logger } from '../utils/logger';
 import { logAudit } from '../utils/auditLog';
+import { resolveTemplate, resolveEmailBody } from '../utils/emailTemplates';
 import { useSheetsSync } from '../hooks/useSheetsSync';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import type { AssessmentFormData } from '../types/forms';
 import type { ServiceContractFormData } from '../types/serviceContract';
+import type { EmailConfig } from '../types/emailConfig';
+import { DEFAULT_EMAIL_CONFIG } from '../types/emailConfig';
 import { LoadingSpinner } from './ui/LoadingSpinner';
+import { EmailComposeModal } from './ui/EmailComposeModal';
 
 const ASSESSMENT_STEP_LABELS = [
   'Client Info',
@@ -66,6 +70,21 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
       : sheetsConfig.apiKey
   ));
 
+  // Email state
+  const [emailDraftId, setEmailDraftId] = useState<string | null>(null);
+  const [showEmailCompose, setShowEmailCompose] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailComposeData, setEmailComposeData] = useState<{
+    blob: Blob; filename: string; draftId: string; clientName: string; type: string; staffName: string;
+  } | null>(null);
+  const [emailStatus, setEmailStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [emailConfig, setEmailConfig] = useState<EmailConfig>(DEFAULT_EMAIL_CONFIG);
+
+  // Load email config
+  useEffect(() => {
+    getEmailConfig().then(setEmailConfig).catch(() => {/* use defaults */});
+  }, []);
+
   const handleSyncDraft = async (draft: DraftRecord) => {
     setSyncingId(draft.id);
     setSyncResult(prev => { const next = { ...prev }; delete next[draft.id]; return next; });
@@ -115,6 +134,50 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
       setPdfLoadingId(null);
     }
   };
+
+  const handleEmailPdf = async (draft: DraftRecord) => {
+    setEmailDraftId(draft.id);
+    try {
+      let blob: Blob;
+      let filename: string;
+      if (draft.type === 'serviceContract') {
+        const { buildContractPdf, getContractFilename } = await import('../utils/pdf/generateContractPdf');
+        const doc = await buildContractPdf(draft.data as ServiceContractFormData);
+        filename = getContractFilename(draft.clientName || 'Unknown');
+        blob = doc.output('blob');
+      } else {
+        const { buildAssessmentPdf, getAssessmentFilename } = await import('../utils/pdf/generatePdf');
+        const doc = await buildAssessmentPdf(draft.data as AssessmentFormData);
+        filename = getAssessmentFilename(draft.clientName || 'Unknown');
+        blob = doc.output('blob');
+      }
+      // Extract staff name from draft data
+      const staffName = draft.type === 'serviceContract'
+        ? (draft.data as ServiceContractFormData).serviceAgreement?.ehcRepName || ''
+        : (draft.data as AssessmentFormData).clientHistory?.ehcStaffName || '';
+      setEmailComposeData({
+        blob,
+        filename,
+        draftId: draft.id,
+        clientName: draft.clientName || 'Client',
+        type: draft.type === 'serviceContract' ? 'Service Contract' : 'Assessment',
+        staffName,
+      });
+      setShowEmailCompose(true);
+    } catch (err) {
+      logger.error('PDF generation failed:', err);
+      alert('PDF generation failed. Please try again.');
+    } finally {
+      setEmailDraftId(null);
+    }
+  };
+
+  // Auto-dismiss email status after 4 seconds
+  useEffect(() => {
+    if (!emailStatus) return;
+    const timer = setTimeout(() => setEmailStatus(null), 4000);
+    return () => clearTimeout(timer);
+  }, [emailStatus]);
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -296,6 +359,15 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
             </div>
           )}
         </div>
+        <button
+          type="button"
+          disabled={emailDraftId === draft.id}
+          onClick={() => handleEmailPdf(draft)}
+          aria-label={`Email ${draft.clientName || 'draft'} PDF`}
+          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-300 text-amber-600 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-wait"
+        >
+          {emailDraftId === draft.id ? 'Email...' : 'Email'}
+        </button>
         {sheetsConfigured && (
           <div className="flex flex-col items-end gap-1">
             <button
@@ -410,6 +482,19 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
         </div>
       </div>
 
+      {emailStatus && (
+        <div
+          role="status"
+          className={`rounded-xl p-3 text-sm font-medium ${
+            emailStatus.type === 'success'
+              ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
+              : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+          }`}
+        >
+          {emailStatus.message}
+        </div>
+      )}
+
       {importError && (
         <div className="rounded-xl p-3 bg-red-50 border border-red-200 text-sm text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
           {importError}
@@ -519,6 +604,66 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
           })()}
         </div>
       )}
+
+      {showEmailCompose && emailComposeData && (() => {
+        const isContract = emailComposeData.type === 'Service Contract';
+        const templateVars = {
+          clientName: emailComposeData.clientName,
+          date: new Date().toLocaleDateString(),
+          staffName: emailComposeData.staffName,
+        };
+        return (
+          <EmailComposeModal
+            defaultSubject={resolveTemplate(
+              isContract ? emailConfig.contractSubjectTemplate : emailConfig.assessmentSubjectTemplate,
+              templateVars,
+            )}
+            defaultBody={resolveEmailBody(
+              isContract ? emailConfig.contractBodyTemplate : emailConfig.assessmentBodyTemplate,
+              templateVars,
+              emailConfig.emailSignature,
+            )}
+            defaultCc={emailConfig.defaultCc}
+            sending={emailSending}
+            onSend={async (composeData) => {
+              setEmailSending(true);
+              try {
+                const { sendPdfEmail } = await import('../utils/emailApi');
+                const result = await sendPdfEmail(
+                  {
+                    to: composeData.to,
+                    cc: composeData.cc || undefined,
+                    subject: composeData.subject,
+                    body: composeData.body,
+                    pdfBlob: emailComposeData.blob,
+                    filename: emailComposeData.filename,
+                    htmlEnabled: emailConfig.htmlEnabled,
+                  },
+                  {
+                    draftId: emailComposeData.draftId,
+                    documentType: emailComposeData.type,
+                  },
+                );
+                if (result.ok) {
+                  setShowEmailCompose(false);
+                  setEmailComposeData(null);
+                  setEmailStatus({ message: `PDF emailed successfully to ${composeData.to}`, type: 'success' });
+                } else {
+                  setEmailStatus({ message: `Failed to send email: ${result.error}`, type: 'error' });
+                }
+              } catch {
+                setEmailStatus({ message: 'Failed to send email. Please try again.', type: 'error' });
+              } finally {
+                setEmailSending(false);
+              }
+            }}
+            onClose={() => {
+              setShowEmailCompose(false);
+              setEmailComposeData(null);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }
