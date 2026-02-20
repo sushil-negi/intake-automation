@@ -14,6 +14,7 @@ interface Props {
   data: ServiceContractFormData;
   onGoToStep: (step: number) => void;
   linkedAssessmentId?: string;
+  onSubmit?: () => Promise<void>;
 }
 
 // Step indices for the contract wizard
@@ -97,11 +98,12 @@ function SignatureStatus({ label, signed }: { label: string; signed: boolean }) 
   );
 }
 
-export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId }: Props) {
+export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId, onSubmit }: Props) {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [preview, setPreview] = useState<{ blob: Blob; filename: string } | null>(null);
   const pdfDocRef = useRef<jsPDF | null>(null);
   const [assessmentPdfLoading, setAssessmentPdfLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Email state
   const [showEmailCompose, setShowEmailCompose] = useState(false);
@@ -486,22 +488,32 @@ export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId }: P
         )}
         <button
           type="button"
-          disabled={incomplete.length > 0}
-          aria-disabled={incomplete.length > 0 || undefined}
-          onClick={() => {
-            if (incomplete.length > 0) return;
-            alert('Contract submitted successfully! (Backend integration pending)');
+          disabled={incomplete.length > 0 || submitting}
+          aria-disabled={incomplete.length > 0 || submitting || undefined}
+          onClick={async () => {
+            if (incomplete.length > 0 || submitting) return;
+            if (onSubmit) {
+              setSubmitting(true);
+              try {
+                await onSubmit();
+              } catch (err) {
+                logger.error('Submit failed:', err);
+                alert('Failed to submit contract. Please try again.');
+              } finally {
+                setSubmitting(false);
+              }
+            }
           }}
           className={`w-full py-4 rounded-xl font-semibold text-lg transition-colors ${
-            incomplete.length > 0
+            incomplete.length > 0 || submitting
               ? 'bg-gray-300 text-gray-500 dark:bg-slate-600 dark:text-slate-400 cursor-not-allowed'
               : 'bg-amber-600 text-white hover:bg-amber-700 active:bg-amber-800'
           }`}
         >
-          Submit Contract
+          {submitting ? 'Submitting...' : 'Submit Contract'}
         </button>
         <p className="text-xs text-gray-500 dark:text-slate-400 text-center">
-          Preview PDF generates a local copy. Submit sends to the EHC backend (coming soon).
+          Preview PDF generates a downloadable copy. Data is automatically synced to the cloud.
         </p>
       </div>
 

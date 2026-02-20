@@ -244,6 +244,32 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
     setTimeout(() => setDraftSaveMessage(''), 2000);
   }, [data, wizard.currentStep, currentDraftId, scheduleDraftSync]);
 
+  const handleSubmit = useCallback(async () => {
+    const customerName = [
+      data.serviceAgreement.customerInfo.firstName,
+      data.serviceAgreement.customerInfo.lastName,
+    ].filter(Boolean).join(' ');
+
+    const id = currentDraftId || `draft-${Date.now()}`;
+    const draft: DraftRecord = {
+      id,
+      clientName: customerName || 'Unnamed Client',
+      type: 'serviceContract',
+      data,
+      lastModified: new Date().toISOString(),
+      status: 'submitted',
+      currentStep: wizard.currentStep,
+      linkedAssessmentId,
+    };
+    await saveDraft(draft);
+    logAudit('contract_submitted', id, draft.clientName);
+    scheduleDraftSync(draft);
+    await flushSync();
+    await releaseLock();
+    clearDraft();
+    onGoHome();
+  }, [data, wizard.currentStep, currentDraftId, linkedAssessmentId, scheduleDraftSync, flushSync, releaseLock, clearDraft, onGoHome]);
+
   const renderStep = () => {
     const formError = errors._form ? (
       <div className="rounded-xl p-3 bg-red-50 border border-red-200 text-sm text-red-700 mb-4">
@@ -324,6 +350,7 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
             data={data}
             onGoToStep={handleStepClick}
             linkedAssessmentId={linkedAssessmentId}
+            onSubmit={handleSubmit}
           />
         );
       default:

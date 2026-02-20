@@ -271,6 +271,27 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
     setTimeout(() => setDraftSaveMessage(''), 2000);
   }, [data, wizard.currentStep, currentDraftId, scheduleDraftSync]);
 
+  const handleSubmit = useCallback(async () => {
+    const id = currentDraftId || `draft-${Date.now()}`;
+    const clientName = data.clientHelpList.clientName || 'Unnamed Client';
+    const draft: DraftRecord = {
+      id,
+      clientName,
+      type: 'assessment',
+      data,
+      lastModified: new Date().toISOString(),
+      status: 'submitted',
+      currentStep: wizard.currentStep,
+    };
+    await saveDraft(draft);
+    logAudit('assessment_submitted', id, clientName);
+    scheduleDraftSync(draft);
+    await flushSync();
+    await releaseLock();
+    clearDraft();
+    onGoHome();
+  }, [data, wizard.currentStep, currentDraftId, scheduleDraftSync, flushSync, releaseLock, clearDraft, onGoHome]);
+
   const renderStep = () => {
     const formError = errors._form ? (
       <div className="rounded-xl p-3 bg-red-50 border border-red-200 text-sm text-red-700 mb-4">
@@ -360,6 +381,7 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
             data={data}
             onGoToStep={handleStepClick}
             onContinueToContract={onContinueToContract ? () => onContinueToContract(data) : undefined}
+            onSubmit={handleSubmit}
           />
         );
       default:
