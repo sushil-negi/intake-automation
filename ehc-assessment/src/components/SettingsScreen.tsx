@@ -28,6 +28,11 @@ interface SettingsScreenProps {
   onGoHome: () => void;
   authUserEmail?: string;
   configSource?: ConfigSource;
+  orgName?: string | null;
+  orgSlug?: string | null;
+  userRole?: string | null;
+  isSuperAdmin?: boolean;
+  onNavigateAdmin?: () => void;
 }
 
 /** Small badge shown next to labels of remotely-managed fields */
@@ -42,7 +47,7 @@ function RemoteBadge() {
   );
 }
 
-export function SettingsScreen({ onGoHome, authUserEmail, configSource }: SettingsScreenProps) {
+export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName, orgSlug, userRole, isSuperAdmin, onNavigateAdmin }: SettingsScreenProps) {
   const isOnline = useOnlineStatus();
 
   // Config state
@@ -1733,6 +1738,44 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource }: Settin
                 <p className="text-xs text-gray-500 dark:text-slate-400">
                   Multi-device sync powered by Supabase. Drafts sync automatically across all devices in your organisation.
                 </p>
+
+                {/* Organization & role info */}
+                {(orgName || userRole) && (
+                  <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 space-y-2">
+                    {orgName && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700 dark:text-slate-300">Organization</span>
+                        <span className="text-xs text-gray-600 dark:text-slate-300 font-medium">
+                          {orgName}
+                          {orgSlug && <span className="text-gray-400 dark:text-slate-500 font-mono ml-1.5">({orgSlug})</span>}
+                        </span>
+                      </div>
+                    )}
+                    {userRole && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700 dark:text-slate-300">Your Role</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          userRole === 'super_admin'
+                            ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                            : userRole === 'admin'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                              : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300'
+                        }`}>
+                          {userRole === 'super_admin' ? 'Super Admin' : userRole === 'admin' ? 'Admin' : 'Staff'}
+                        </span>
+                      </div>
+                    )}
+                    {isSuperAdmin && onNavigateAdmin && (
+                      <button
+                        type="button"
+                        onClick={onNavigateAdmin}
+                        className="mt-2 w-full px-3 py-2 text-xs font-medium rounded-lg bg-[#1a3a4a] dark:bg-slate-600 text-white hover:bg-[#15303d] dark:hover:bg-slate-500 transition-colors min-h-[36px]"
+                      >
+                        🛡️ Go to Tenant Admin Portal
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Connection status */}
                 <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 space-y-3">

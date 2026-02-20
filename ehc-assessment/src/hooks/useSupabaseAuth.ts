@@ -23,8 +23,14 @@ export interface SupabaseAuthState {
   userId: string | null;
   /** The user's organisation id from the `profiles` table. */
   orgId: string | null;
+  /** The user's organization name (for display). */
+  orgName: string | null;
+  /** The user's organization slug (URL-safe identifier). */
+  orgSlug: string | null;
   /** The user's profile row. */
   profile: ProfileRow | null;
+  /** True if the user has the super_admin role. */
+  isSuperAdmin: boolean;
   /** True while the initial session is loading. */
   loading: boolean;
   /** True when Supabase env vars are present. */
@@ -48,6 +54,8 @@ export function useSupabaseAuth(): SupabaseAuthState {
   const configured = isSupabaseConfigured();
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [orgName, setOrgName] = useState<string | null>(null);
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(configured); // only load if configured
 
   // Listen for Supabase auth state changes
@@ -76,6 +84,8 @@ export function useSupabaseAuth(): SupabaseAuthState {
   useEffect(() => {
     if (!session?.user?.id) {
       setProfile(null);
+      setOrgName(null);
+      setOrgSlug(null);
       return;
     }
     const sb = getSupabaseClient();
@@ -91,6 +101,20 @@ export function useSupabaseAuth(): SupabaseAuthState {
           setProfile(null);
         } else {
           setProfile(data as ProfileRow | null);
+          // Fetch org name if profile has org_id
+          if (data?.org_id) {
+            sb.from('organizations')
+              .select('name, slug')
+              .eq('id', data.org_id)
+              .maybeSingle()
+              .then(({ data: org }) => {
+                setOrgName(org?.name ?? null);
+                setOrgSlug(org?.slug ?? null);
+              });
+          } else {
+            setOrgName(null);
+            setOrgSlug(null);
+          }
         }
       });
   }, [session?.user?.id]);
@@ -121,7 +145,10 @@ export function useSupabaseAuth(): SupabaseAuthState {
     supabaseUser,
     userId: session?.user?.id ?? null,
     orgId: profile?.org_id ?? null,
+    orgName,
+    orgSlug,
     profile,
+    isSuperAdmin: profile?.role === 'super_admin',
     loading,
     configured,
     signInWithGoogle,

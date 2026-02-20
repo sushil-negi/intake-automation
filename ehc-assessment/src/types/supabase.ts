@@ -13,6 +13,7 @@ export interface OrganizationRow {
   id: string;
   name: string;
   slug: string;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -22,7 +23,7 @@ export interface ProfileRow {
   full_name: string;
   avatar_url: string;
   org_id: string;
-  role: 'admin' | 'staff';
+  role: 'super_admin' | 'admin' | 'staff';
   created_at: string;
   updated_at: string;
 }

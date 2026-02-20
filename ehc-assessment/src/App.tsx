@@ -5,6 +5,8 @@ import { ServiceContractWizard } from './components/ServiceContractWizard';
 import { DraftManager } from './components/DraftManager';
 import { SettingsScreen } from './components/SettingsScreen';
 import { LoginScreen } from './components/LoginScreen';
+import { AdminPortal } from './components/AdminPortal';
+import { OrgSetupScreen } from './components/OrgSetupScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { mapAssessmentToContract } from './utils/prefill';
 import { saveDraft, getSheetsConfig, saveSheetsConfig, purgeOldDrafts } from './utils/db';
@@ -59,6 +61,10 @@ function App() {
     supabaseUser,
     userId: supabaseUserId,
     orgId: supabaseOrgId,
+    orgName: supabaseOrgName,
+    orgSlug: supabaseOrgSlug,
+    profile: supabaseProfile,
+    isSuperAdmin,
     loading: supabaseLoading,
     configured: supabaseConfigured,
     signOut: supabaseSignOut,
@@ -223,6 +229,30 @@ function App() {
     );
   }
 
+  // No-org gate: if Supabase is configured and user is signed in but has no profile/org,
+  // show the OrgSetupScreen. Super-admins can proceed to Admin Portal from here.
+  if (supabaseConfigured && supabaseUser && !supabaseLoading && !supabaseOrgId && !isSuperAdmin) {
+    return (
+      <OrgSetupScreen
+        authUser={authUser!}
+        isSuperAdmin={false}
+        onNavigate={setView}
+        onSignOut={handleSignOut}
+      />
+    );
+  }
+  // Super-admin with no org_id but requesting admin portal — allow through
+  if (supabaseConfigured && supabaseUser && !supabaseLoading && !supabaseOrgId && isSuperAdmin && view.screen !== 'admin') {
+    return (
+      <OrgSetupScreen
+        authUser={authUser!}
+        isSuperAdmin={true}
+        onNavigate={setView}
+        onSignOut={handleSignOut}
+      />
+    );
+  }
+
   const handleContinueToContract = async (assessmentData: AssessmentFormData) => {
     const assessmentId = `assessment-${Date.now()}`;
     try {
@@ -257,7 +287,7 @@ function App() {
 
   switch (view.screen) {
     case 'dashboard':
-      content = <Dashboard onNavigate={setView} authUser={authUser} onSignOut={authConfig.requireAuth ? handleSignOut : undefined} darkMode={darkMode} />;
+      content = <Dashboard onNavigate={setView} authUser={authUser} onSignOut={authConfig.requireAuth ? handleSignOut : undefined} darkMode={darkMode} isSuperAdmin={isSuperAdmin} orgName={supabaseOrgName} />;
       break;
 
     case 'assessment':
@@ -354,12 +384,31 @@ function App() {
       );
       break;
 
+    case 'admin':
+      content = (
+        <ErrorBoundary fallbackTitle="Admin portal error">
+          <AdminPortal onGoHome={goHome} />
+        </ErrorBoundary>
+      );
+      break;
+
     case 'settings':
-      content = <SettingsScreen onGoHome={goHome} authUserEmail={authUser?.email} configSource={configSource} />;
+      content = (
+        <SettingsScreen
+          onGoHome={goHome}
+          authUserEmail={authUser?.email}
+          configSource={configSource}
+          orgName={supabaseOrgName}
+          orgSlug={supabaseOrgSlug}
+          userRole={supabaseProfile?.role}
+          isSuperAdmin={isSuperAdmin}
+          onNavigateAdmin={isSuperAdmin ? () => setView({ screen: 'admin' }) : undefined}
+        />
+      );
       break;
 
     default:
-      content = <Dashboard onNavigate={setView} authUser={authUser} onSignOut={authConfig.requireAuth ? handleSignOut : undefined} darkMode={darkMode} />;
+      content = <Dashboard onNavigate={setView} authUser={authUser} onSignOut={authConfig.requireAuth ? handleSignOut : undefined} darkMode={darkMode} isSuperAdmin={isSuperAdmin} orgName={supabaseOrgName} />;
   }
 
   return (

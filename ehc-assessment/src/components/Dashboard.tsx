@@ -24,6 +24,8 @@ interface DashboardProps {
   authUser?: AuthUser | null;
   onSignOut?: () => void;
   darkMode?: DarkModeState;
+  isSuperAdmin?: boolean;
+  orgName?: string | null;
 }
 
 const STORAGE_KEYS: Record<DraftType, string> = {
@@ -72,7 +74,7 @@ async function hasUnsavedData(key: string): Promise<boolean> {
   }
 }
 
-export function Dashboard({ onNavigate, authUser, onSignOut, darkMode }: DashboardProps) {
+export function Dashboard({ onNavigate, authUser, onSignOut, darkMode, isSuperAdmin, orgName }: DashboardProps) {
   const [draftCount, setDraftCount] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
   const isOnline = useOnlineStatus();
@@ -226,7 +228,12 @@ export function Dashboard({ onNavigate, authUser, onSignOut, darkMode }: Dashboa
           <h1 className="text-2xl sm:text-3xl font-bold text-[#1a3a4a] dark:text-slate-100">
             {authUser ? `Welcome, ${authUser.name.split(' ')[0]}` : 'Welcome'}
           </h1>
-          <p className="text-gray-500 dark:text-slate-400 mt-2 text-sm sm:text-base">
+          {orgName && (
+            <p className="text-[#1a3a4a]/70 dark:text-slate-300 mt-1 text-sm font-medium">
+              {orgName}
+            </p>
+          )}
+          <p className="text-gray-500 dark:text-slate-400 mt-1 text-sm sm:text-base">
             Select an option to get started
           </p>
         </div>
@@ -257,6 +264,14 @@ export function Dashboard({ onNavigate, authUser, onSignOut, darkMode }: Dashboa
             icon="⚙️"
             onClick={() => onNavigate({ screen: 'settings' })}
           />
+          {isSuperAdmin && (
+            <DashboardCard
+              title="Tenant Admin"
+              subtitle="Manage organizations and users"
+              icon="🛡️"
+              onClick={() => onNavigate({ screen: 'admin' })}
+            />
+          )}
         </div>
       </main>
 

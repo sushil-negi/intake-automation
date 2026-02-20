@@ -5,4 +5,5 @@ export type AppView =
   | { screen: 'assessment'; draftId?: string; resumeStep?: number }
   | { screen: 'serviceContract'; draftId?: string; prefillFrom?: AssessmentFormData; resumeStep?: number; linkedAssessmentId?: string }
   | { screen: 'drafts' }
-  | { screen: 'settings' };
+  | { screen: 'settings' }
+  | { screen: 'admin' };

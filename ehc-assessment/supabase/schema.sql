@@ -191,22 +191,34 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 
--- Helper: get the current user's org_id (in PUBLIC schema, not auth)
+-- Helper: get the current user's org_id (bypasses RLS via SECURITY DEFINER)
 CREATE OR REPLACE FUNCTION public.user_org_id()
 RETURNS UUID AS $$
   SELECT org_id FROM public.profiles WHERE id = auth.uid();
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
+-- Helper: check if current user's role is admin or super_admin (bypasses RLS)
+CREATE OR REPLACE FUNCTION public.user_is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'super_admin')
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
 -- Organizations: users can only see their own org
+-- Uses SECURITY DEFINER function to avoid circular RLS with profiles
 CREATE POLICY org_select ON organizations
   FOR SELECT USING (
-    id IN (SELECT org_id FROM profiles WHERE id = auth.uid())
+    id = public.user_org_id()
   );
 
--- Profiles: read within org (uses inline subquery to avoid circular dep)
+-- Profiles: users can read own profile + profiles within their org
+-- IMPORTANT: All checks use SECURITY DEFINER functions to avoid circular RLS.
+-- Never use inline subqueries on profiles within profiles RLS policies.
 CREATE POLICY profiles_select ON profiles
   FOR SELECT USING (
-    org_id IN (SELECT p.org_id FROM profiles p WHERE p.id = auth.uid())
+    id = auth.uid()
+    OR org_id = public.user_org_id()
   );
 
 CREATE POLICY profiles_update ON profiles
@@ -236,23 +248,20 @@ CREATE POLICY audit_logs_insert ON audit_logs
   FOR INSERT WITH CHECK (org_id = public.user_org_id());
 
 -- App config: read within org, write for admins
+-- Uses SECURITY DEFINER function for role check to avoid circular RLS
 CREATE POLICY app_config_select ON app_config
   FOR SELECT USING (org_id = public.user_org_id());
 
 CREATE POLICY app_config_update ON app_config
   FOR UPDATE USING (
     org_id = public.user_org_id()
-    AND EXISTS (
-      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
-    )
+    AND public.user_is_admin()
   );
 
 CREATE POLICY app_config_insert ON app_config
   FOR INSERT WITH CHECK (
     org_id = public.user_org_id()
-    AND EXISTS (
-      SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
-    )
+    AND public.user_is_admin()
   );
 
 -- =============================================================================
