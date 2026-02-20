@@ -32,7 +32,7 @@
 - **Offline Storage:** localStorage (auto-save), IndexedDB (drafts + sync queue)
 - **Build Tool:** Vite
 - **Package Manager:** npm
-- **Testing:** Vitest + jsdom (487 unit tests, 35 files) + Playwright + axe-core (16 E2E tests)
+- **Testing:** Vitest + jsdom (587 unit tests, 43 files) + Playwright + axe-core (16 E2E tests)
 
 ---
 
@@ -50,9 +50,10 @@
 **Accessibility:** WCAG AA contrast, required indicators, heading hierarchy, error icons, aria-live, focus traps, automated axe-core WCAG testing in CI — COMPLETE
 **Go-Live Audit:** v2 (27 findings resolved) + v3 (13 more fixes) + v4 (11 findings: 10 resolved, 1 accepted risk) + v5 (2 warnings resolved: source maps disabled, stable signature lib) + v6 (automated WCAG testing, contrast fix) — READY (0 blockers, 0 warnings)
 **Documentation:** README.md, CONTRIBUTING.md, docs/SECURITY.md, docs/HIPAA.md, docs/DEPLOYMENT.md, docs/GOOGLE-SHEETS-SETUP.md
-**Tests:** 487/487 unit (35 files) + 16/16 E2E (Playwright: 11 smoke + 5 accessibility)
+**Tests:** 587/587 unit (43 files) + 16/16 E2E (Playwright: 11 smoke + 5 accessibility)
 **TypeScript:** Clean (`tsc --noEmit` zero errors)
-**Codebase:** 108 source files (47 components, 8 hooks, 47 utils), ~18,900 lines
+**Codebase:** 151 source files (43 components, 12 hooks, 39 utils), ~28,500 lines
+**Supabase Backend:** Multi-device sync via Supabase Postgres (JSONB form data, RLS, optimistic concurrency, draft locking, real-time subscriptions, audit dual-write, conflict resolution). Graceful fallback when not configured.
 **Dev Server:** `npm run dev` → localhost:5173
 
 ---
@@ -122,6 +123,9 @@
 | 2026-02-12 | Session 33 | **Sprint 19 — Feature Completion (6 stories + optimization).** All remaining EPIC 19 + EPIC 20 backlog stories implemented. (1) **20.4 Draft Search & Filter:** Added type filter (`all`/`assessment`/`serviceContract`), sort dropdown (`newest`/`oldest`/`name`), combined filtering in DraftManager. Single sorted list replaces split sections. Type badge per card. (2) **19.3 Minimum Necessary Export Filters:** Created `ExportPrivacyConfig` interface with 7 PHI category toggles (names, addresses, phones, DOB, emails, insurance, signatures). Extracted shared `phiFieldDetection.ts` from sheetsApi.ts. Created `exportFilters.ts` with `applyExportFilters()`. Wired into CSV/JSON exports. Export Privacy section in Settings. 11 tests. (3) **19.4 BAA Documentation & HIPAA Compliance Checklist:** Added HIPAA Compliance accordion in Settings with 7 read-only status indicators (AES-256, PHI masking, audit logging, session expiry, auto-purge, CSP+HSTS, no external transmission), BAA date/notes fields, and "What this app does NOT provide" section. (4) **20.6 Signature UX Improvements:** Taller signature canvas (`h-[160px] sm:h-[200px]`), undo-last-stroke button with stroke history via `sigRef.current.toData()/fromData()`, undo visibility gated on draw mode + stroke count. (5) **20.10 Keyboard Navigation:** Created `ToggleCardGroup.tsx` wrapper with ArrowUp/Down key handler, `data-toggle-card` attribute on ToggleCard buttons, wrapped groups in ClientAssessment. (6) **20.5 Dark Mode (largest):** Created `useDarkMode` hook (system/light/dark modes, localStorage `ehc-theme`, `.dark` class on `<html>`, matchMedia listener). Created `ThemeToggle.tsx` (☀️/🌙/🖥️ cycle button). Added `@custom-variant dark` + CSS custom properties to index.css. Applied `dark:` classes to 13+ components (FormFields, AccordionSection, ToggleCard, CategoryCard, WizardShell, Dashboard, DashboardCard, ConfirmDialog, DraftManager, LoadingSpinner, SettingsScreen, ProgressBar). Consistent slate palette: `dark:bg-slate-800/900`, `dark:text-slate-100/300/400`, `dark:border-slate-600/700`. 6 dark mode tests. (7) **AddressAutocomplete optimization:** AbortController for stale request cancellation, LRU query cache (20 entries), reduced debounce 350→300ms, reduced timeout 4→3s, useCallback memoization, abort cleanup on unmount, dark mode classes. **New files:** `useDarkMode.ts`, `ThemeToggle.tsx`, `ToggleCardGroup.tsx`, `phiFieldDetection.ts`, `exportFilters.ts`, `useDarkMode.test.ts`, `exportFilters.test.ts`. **Tests:** 226/226 unit (18 files), TypeScript clean, production build succeeds. |
 | 2026-02-14 | Session 37 | **EPIC-22 Email Customization + Draft Duplicate Fix.** (1) **Email template customization:** Configurable subject/body templates per document type (assessment vs contract) with `{clientName}`, `{date}`, `{staffName}` placeholders (`emailTemplates.ts`). Email config persisted in IndexedDB `emailConfig` store (DB v5→v6). Settings UI: template editors, default CC, email signature, HTML formatting toggle, save/reset buttons. (2) **Branded HTML email template:** Server-side `buildHtmlEmail()` in `email.mts` — table-based layout (600px), EHC brand colors (#1a3a4a header, #d4912a accent), inline CSS. `htmlEnabled` flag on API. (3) **Draft duplicate fix (3 root causes):** (a) `clearDraft()` in useAutoSave.ts now cancels pending debounce timer to prevent write-back race condition. (b) Dashboard auto-rescue dedup guard — checks if matching draft exists in IndexedDB within 60s before creating new. (c) `setCurrentDraftId(null)` added to `handleNewAssessment`/`handleNewContract` to prevent overwriting previous client's draft. (4) **DB v6 migration fix:** Bumped DB_VERSION 5→6 with idempotent `db.objectStoreNames.contains()` guard after user reported "failed to save" when emailConfig store missing. Tests: 487/487 unit (35 files). |
 | 2026-02-16 | Session 38 | **Production hardening & documentation.** (1) **HTML XSS prevention:** Added `escapeHtml()` in `email.mts` — escapes `& < > " '` before `<br>` conversion. Applied to both branded HTML and plain-text email paths. (2) **Server-side size limits:** Subject max 1000 chars, body max 50000 chars — returns 413 if exceeded. (3) **Client-side maxLength:** Settings template inputs: subject `maxLength=200`, body `maxLength=5000`, signature `maxLength=2000`. (4) **Production readiness audit:** Comprehensive 3-agent deep audit across security, test coverage, and email changes. 95→97% confidence. Zero breaking changes confirmed. (5) **Documentation update:** Updated MEMORY.md, SESSION.md, GO-LIVE-AUDIT.md (v8), BACKLOG.md, README.md. Tests: 487/487 unit (35 files), TypeScript clean. |
+| 2026-02-18 | Session 39 | **EPIC-23 Supabase Phase 1+2: Foundation + Data Sync (committed f314c11).** (1) Set up Supabase project, ran schema SQL (organizations, profiles, drafts, audit_logs, app_config tables with RLS, lock functions, version triggers, realtime publishing). (2) Created `supabaseClient.ts` (singleton, `isSupabaseConfigured()` guard), generated `types/supabase.ts`. (3) Added `@supabase/supabase-js ^2.97.0`, updated CSP in vite.config.ts and netlify.toml. (4) Created `useSupabaseAuth.ts` hook — Google OAuth via Supabase Auth, maps session to existing AuthUser shape, graceful GIS fallback. (5) Modified LoginScreen.tsx + App.tsx for Supabase auth flow. (6) Created `supabaseDrafts.ts` (CRUD: upsert with optimistic version concurrency, fetch, delete). (7) Created `useSupabaseSync.ts` (background sync with 3s debounce, offline queue). (8) Bumped IndexedDB to v7 with `supabaseSyncQueue` store. (9) Created `supabaseMigration.ts` (one-time IndexedDB → Supabase migration). (10) Created `supabaseAuditLog.ts` for remote audit log writes. (11) Created `useOnlineStatus.ts` hook. Tests: 74 new Supabase tests added. 20 files changed, +2377 lines. |
+| 2026-02-19 | Session 40 | **EPIC-23 Supabase Phase 3: Real-Time + Locks (committed a2d6657).** (1) Created `useSupabaseDrafts.ts` with Realtime subscription — live draft list via `supabase.channel('drafts-org').on('postgres_changes', ...)`. (2) Created `useDraftLock.ts` hook — Postgres `FOR UPDATE` atomicity, 30-min auto-expiry, 5-min renewal via `setInterval`, `beforeunload` safety net, lock indicators. (3) Integrated locks into both AssessmentWizard and ServiceContractWizard — lock acquire on mount, release on exit. (4) Added lock indicators in Dashboard showing locked/synced state. 8 files changed, +1182 lines. |
+| 2026-02-20 | Session 41 | **EPIC-23 Supabase Phase 4: Audit + Conflict + Polish (committed 3b5bef0).** (1) Dual-write audit logs — `setAuditDualWriteContext(orgId, email)` pattern, `logAudit()` auto-dual-writes to Supabase. Wired in App.tsx via useEffect. (2) Created `ConflictResolutionModal.tsx` — three-option modal (Keep Mine / Use Theirs / Cancel) with focus trap + ARIA. (3) Added `forceOverwrite` option to `upsertRemoteDraft()`. (4) Enhanced `useSupabaseSync.ts` with conflict detection (version mismatch → `conflictInfo`), `resolveConflict('keepMine' | 'useTheirs')`, `dismissConflict()`. (5) Integrated conflict UI into both wizards. (6) Added "Cloud Sync (Supabase)" section to SettingsScreen. (7) Fixed `supabaseOrgId` destructuring bug in ServiceContractWizard. (8) 26 new tests (useSupabaseSync: 12, ConflictResolutionModal: 10, auditDualWrite: 4). Fixed settingsEmailTest.test.ts mocks. Total: 587/587 unit tests (43 files), TypeScript clean. 12 files changed, +1036 lines. |
 
 ---
 
@@ -186,14 +190,19 @@ src/
     forms/               # Assessment form steps (7 components)
     forms/contract/      # Contract form steps (7 components)
     ui/                  # Shared UI: toggle cards, signature pad, initials, accordion, ThemeToggle, ToggleCardGroup, EmailComposeModal, etc.
+      ConflictResolutionModal.tsx # Sync conflict resolution (Keep Mine / Use Theirs / Cancel)
   hooks/
     useAutoSave.ts       # Encrypted auto-save (async init, AES-GCM, isLoading gate)
     useDarkMode.ts       # Dark mode hook (system/light/dark, localStorage, .dark class)
+    useDraftLock.ts      # Supabase draft locking (acquire/release/refresh, 30-min expiry)
     useFormWizard.ts     # Wizard step state management
     useIdleTimeout.ts    # Session idle timeout (activity tracking, warning/timeout)
     useOnlineStatus.ts   # Online/offline detection hook
     useSheetsSync.ts     # React hook wrapping sheetsApi (sync assessments/contracts to Google Sheets)
     useStepValidation.ts # Zod validation hook: validate(), clearErrors(), errors
+    useSupabaseAuth.ts   # Supabase Google OAuth wrapper (graceful GIS fallback)
+    useSupabaseDrafts.ts # Remote drafts list with Realtime subscription
+    useSupabaseSync.ts   # Background sync + offline queue + conflict resolution
   validation/
     schemas.ts           # Assessment Zod schemas (7 steps)
     contractSchemas.ts   # Contract Zod schemas (7 steps, null for Review)
@@ -202,6 +211,7 @@ src/
     forms.ts             # Assessment form interfaces
     serviceContract.ts   # Contract form interfaces (6 sub-interfaces)
     emailConfig.ts       # Email template config interfaces (per-document templates, signature, HTML toggle)
+    supabase.ts          # Generated Supabase database types
   utils/
     initialData.ts       # Assessment defaults
     contractInitialData.ts # Contract defaults (includes termsConditions)
@@ -214,6 +224,10 @@ src/
     phiFieldDetection.ts # Shared PHI field detection (isNameField, isAddressField, etc.)
     emailApi.ts          # Email send client (Resend via Netlify Function, rate limiting, PDF attachment)
     emailTemplates.ts    # Email template engine ({clientName}/{date}/{staffName} placeholders, per-document defaults)
+    supabaseClient.ts    # Supabase client singleton, isSupabaseConfigured() guard
+    supabaseDrafts.ts    # CRUD operations on drafts table (upsert, fetch, delete)
+    supabaseAuditLog.ts  # Remote audit log read/write via Supabase
+    supabaseMigration.ts # One-time IndexedDB → Supabase migration
     db.ts                # IndexedDB: drafts (encrypted) + sync queue + auth config + emailConfig
     pdf/
       pdfStyles.ts              # Colors, margins, fonts, helpers (HEADER_HEIGHT=35mm)
@@ -258,6 +272,14 @@ src/
     emailConfig.test.ts           # Email config persistence tests (IndexedDB, defaults, migration)
     emailTemplates.test.ts        # Email template engine tests (placeholders, per-document defaults)
     settingsEmailTest.test.ts     # Settings email UI tests (template editors, CC, signature, save/reset)
+    useSupabaseSync.test.ts     # 12 Supabase sync + conflict tests
+    useSupabaseDrafts.test.ts   # 15 remote drafts list tests
+    useDraftLock.test.ts        # 14 draft locking tests
+    supabaseDrafts.test.ts      # 23 CRUD tests
+    supabaseMigration.test.ts   # 9 migration tests
+    supabaseAuditLog.test.ts    # 8 audit log tests
+    ConflictResolutionModal.test.tsx # 10 modal component tests
+    auditDualWrite.test.ts      # 4 dual-write tests
 ```
 
 ---
@@ -432,6 +454,18 @@ A second 7-step wizard for the Service Agreement packet, running alongside the e
 | ~~P3~~ | ~~BAA documentation & HIPAA checklist~~ | ~~Status indicators + BAA fields in Settings (EPIC-19.4)~~ | Done |
 | ~~P2~~ | ~~Signature UX improvements~~ | ~~Taller canvas, undo stroke (EPIC-20.6)~~ | Done |
 | ~~P2~~ | ~~Keyboard navigation~~ | ~~Arrow key navigation in ToggleCard groups (EPIC-20.10)~~ | Done |
+
+---
+
+### Sprint 22 — Supabase Multi-Device Sync (COMPLETE)
+- EPIC-23 Phases 1-4 implemented: Supabase Postgres backend with JSONB form data, RLS, optimistic concurrency
+- Phase 1: Foundation — Supabase client, types, auth hook, env vars, CSP
+- Phase 2: Data Sync — CRUD operations, background sync (3s debounce), offline queue, migration
+- Phase 3: Real-Time + Locks — Realtime subscriptions, draft locking (30-min expiry, 5-min renewal), lock UI
+- Phase 4: Audit + Polish — Dual-write audit logs, conflict resolution UI, Settings cloud sync section
+- 100 new tests (587 total across 43 files)
+- 3 commits: f314c11 (Phase 1+2, +2377 lines), a2d6657 (Phase 3, +1182 lines), 3b5bef0 (Phase 4, +1036 lines)
+- Total: ~4,595 new lines of code
 
 ---
 

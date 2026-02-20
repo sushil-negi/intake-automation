@@ -15,8 +15,9 @@ Replaces the 8-page paper assessment packet with a guided, multi-step wizard tha
 - **Digital Signatures** — Draw or type-to-sign with timestamp metadata
 - **PDF Export** — Professional multi-page PDF with branded headers, concern highlighting, signature images
 - **Google Sheets Sync** — OAuth 2.0 sync with PHI masking (sanitized before transmission)
-- **Audit Logging** — 27 action types with HMAC-SHA256 tamper evidence, CSV export
-- **Draft Management** — Auto-save, IndexedDB draft storage, resume from any device
+- **Audit Logging** — 27 action types with HMAC-SHA256 tamper evidence, CSV export, dual-write to Supabase
+- **Multi-Device Sync** — Supabase Postgres backend with real-time subscriptions, optimistic concurrency, draft locking, conflict resolution
+- **Draft Management** — Auto-save, IndexedDB draft storage, resume from any device, cross-device sync via Supabase
 - **Data Export** — PDF, CSV, JSON, bulk ZIP export
 - **Email PDF** — Send assessment/contract PDFs directly from the app via Resend API with branded HTML template
 - **Email Templates** — Configurable subject/body templates with {clientName}, {date}, {staffName} placeholders, default CC, signature
@@ -44,6 +45,7 @@ Replaces the 8-page paper assessment packet with a guided, multi-step wizard tha
 | Unit Tests | Vitest 4 + Testing Library |
 | E2E Tests | Playwright + Chromium |
 | CI/CD | GitHub Actions |
+| Backend | Supabase (Postgres + Auth + Realtime) |
 | Hosting | Netlify (configured) |
 | Email Delivery | Resend REST API (via Netlify Function) |
 
@@ -67,7 +69,7 @@ npm run dev
 # → http://localhost:5173
 
 # Run tests
-npm test              # 487 unit tests
+npm test              # 587 unit tests
 npm run test:e2e      # 16 E2E tests (requires Playwright browsers)
 
 # Type check
@@ -108,7 +110,7 @@ src/
     wizard/                  # WizardShell, ProgressBar
     forms/                   # 7 assessment form components
     forms/contract/          # 7 contract form components
-    ui/                      # Shared: ToggleCard, CategoryCard, SignaturePad, ThemeToggle, ToggleCardGroup, EmailComposeModal, etc.
+    ui/                      # Shared: ToggleCard, CategoryCard, SignaturePad, ThemeToggle, ToggleCardGroup, EmailComposeModal, ConflictResolutionModal, etc.
   hooks/
     useAutoSave.ts           # Encrypted auto-save (async init, AES-GCM)
     useFormWizard.ts         # Step navigation state
@@ -116,6 +118,11 @@ src/
     useIdleTimeout.ts        # Activity tracking + session timeout
     useFocusTrap.ts          # Modal focus trap (Tab/Shift+Tab)
     useDarkMode.ts           # Dark mode (system/light/dark with auto-detect)
+    useOnlineStatus.ts       # Online/offline detection
+    useSupabaseAuth.ts       # Supabase Google OAuth (graceful GIS fallback)
+    useSupabaseSync.ts       # Background sync + offline queue + conflict resolution
+    useSupabaseDrafts.ts     # Remote draft list with Realtime subscription
+    useDraftLock.ts          # Draft locking (30-min expiry, 5-min renewal)
   validation/
     schemas.ts               # Assessment Zod schemas (7 steps)
     contractSchemas.ts       # Contract Zod schemas (7 steps)
@@ -125,6 +132,7 @@ src/
     serviceContract.ts       # Contract data interfaces
     auth.ts                  # AuthUser, AuthConfig
     emailConfig.ts            # EmailConfig interface + defaults
+    supabase.ts              # Generated Supabase database types
   utils/
     crypto.ts                # AES-GCM encryption + HMAC integrity
     auditLog.ts              # Audit trail (29 actions, HMAC, CSV export)
@@ -140,6 +148,10 @@ src/
     fetchWithTimeout.ts      # Safe fetch with timeout (AbortController)
     exportFilters.ts         # HIPAA Minimum Necessary export filters (PHI category toggles)
     phiFieldDetection.ts     # PHI field detection for export filtering
+    supabaseClient.ts        # Supabase client singleton, isSupabaseConfigured() guard
+    supabaseDrafts.ts        # CRUD operations on drafts table (upsert, fetch, delete)
+    supabaseAuditLog.ts      # Remote audit log read/write via Supabase
+    supabaseMigration.ts     # One-time IndexedDB → Supabase migration
     pdf/                     # PDF generation (12 section renderers)
 ```
 
@@ -172,6 +184,12 @@ flowchart TB
         Email["Email PDF\n(Resend API)"]
     end
 
+    subgraph Backend ["Supabase Backend"]
+        SupaDB["Postgres\n(JSONB form_data)"]
+        Realtime["Realtime\n(postgres_changes)"]
+        SupaAuth["Supabase Auth\n(Google OAuth)"]
+    end
+
     subgraph Auth ["Authentication"]
         OAuth["Google OAuth 2.0"]
         IdleTimeout["Idle Timeout"]
@@ -186,12 +204,16 @@ flowchart TB
     AutoSave <--> IDB
     LS --- CryptoDB
     IDB --- CryptoDB
+    IDB -->|"3s debounce\n(if online)"| SupaDB
+    SupaDB -->|"Realtime events"| Realtime
+    Realtime --> Dashboard
     AssessmentWizard --> PDF
     ContractWizard --> PDF
     Drafts --> CSV
     Drafts --> Sheets
     AssessmentWizard --> Email
     ContractWizard --> Email
+    SupaAuth --> OAuth
     OAuth --> Dashboard
     IdleTimeout --> Dashboard
     SessionExpiry --> Dashboard
@@ -223,7 +245,7 @@ flowchart LR
 ## Testing
 
 ```bash
-npm test                 # Run all 487 unit tests
+npm test                 # Run all 587 unit tests
 npm run test:watch       # Watch mode
 npm run test:e2e         # 16 Playwright E2E tests (smoke + accessibility)
 npx tsc --noEmit         # TypeScript type checking
@@ -231,7 +253,7 @@ npx tsc --noEmit         # TypeScript type checking
 
 ### Test Coverage
 
-**35 test files — 487 unit tests**
+**43 test files — 587 unit tests**
 
 | Suite | Tests | What's Covered |
 |-------|-------|---------------|
@@ -278,6 +300,60 @@ npx tsc --noEmit         # TypeScript type checking
 | emailConfig.test.ts | 5 | IndexedDB persistence, defaults, round-trip |
 | emailTemplates.test.ts | 13 | Placeholder resolution, signature appending |
 | settingsEmailTest.test.ts | 14 | Template editor UI, config save/reset |
+| **Supabase Sync** | | |
+| useSupabaseSync.test.ts | 12 | Sync, conflict detection, resolution, offline queue, flush |
+| useSupabaseDrafts.test.ts | 15 | Remote draft list, realtime events, filtering |
+| useDraftLock.test.ts | 14 | Lock acquire/release/refresh, expiry |
+| supabaseDrafts.test.ts | 23 | CRUD operations, version concurrency, forceOverwrite |
+| supabaseMigration.test.ts | 9 | Migration flow, conflict handling |
+| supabaseAuditLog.test.ts | 8 | Remote audit log write, filtering |
+| ConflictResolutionModal.test.tsx | 10 | Render, buttons, Escape, ARIA |
+| auditDualWrite.test.ts | 4 | Context set/clear, dual-write trigger |
+
+## Supabase Setup (Optional — Multi-Device Sync)
+
+The app works fully offline without Supabase. To enable multi-device sync, real-time updates, and centralized audit logs:
+
+### 1. Create Supabase Project
+
+Sign up at [supabase.com](https://supabase.com) and create a new project.
+
+### 2. Run Schema Migration
+
+Execute the SQL in `supabase/schema.sql` in the Supabase SQL Editor. This creates:
+- **Tables:** `organizations`, `profiles`, `drafts`, `audit_logs`, `app_config`
+- **RLS policies:** Row-level security isolating data by organization
+- **Functions:** `acquire_draft_lock()`, `release_draft_lock()`, version auto-increment trigger
+- **Realtime:** Enabled on `drafts` table for live updates
+
+### 3. Configure Environment Variables
+
+Add to your `.env` file (or Netlify environment):
+
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### 4. Configure Google OAuth in Supabase
+
+In Supabase Dashboard → Authentication → Providers → Google:
+- Enable Google provider
+- Add your existing Google OAuth Client ID and Secret
+- The app reuses the same Client ID for both Supabase Auth and Google Sheets
+
+### What Supabase Enables
+
+| Feature | Without Supabase | With Supabase |
+|---------|-----------------|---------------|
+| Data storage | IndexedDB (per-device) | IndexedDB + Postgres (cross-device) |
+| Authentication | Google Identity Services | Supabase Auth (auto-refresh tokens) |
+| Draft sharing | Not available | Real-time across all devices |
+| Draft locking | Not needed | 30-min locks prevent concurrent edits |
+| Audit logs | IndexedDB only | Dual-write: IndexedDB + Supabase |
+| Offline support | Full | Full (syncs when back online) |
+
+> **Note:** The app detects Supabase configuration automatically via `isSupabaseConfigured()`. If env vars are not set, it falls back to local-only mode with no errors.
 
 ## Deployment
 
@@ -295,6 +371,7 @@ All security headers (HSTS, CSP, X-Frame-Options, etc.) are configured in `netli
 
 | Document | Description |
 |----------|-------------|
+| [Architecture Diagrams](docs/ARCHITECTURE.md) | System context, component hierarchy, sync flows, sequence diagrams |
 | [Deployment Guide](docs/DEPLOYMENT.md) | Netlify setup, security headers, environment |
 | [Security](docs/SECURITY.md) | Encryption, authentication, session management |
 | [HIPAA Compliance](docs/HIPAA.md) | PHI handling, consent, audit trail |

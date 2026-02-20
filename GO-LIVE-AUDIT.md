@@ -3,7 +3,7 @@
 **Date:** 2026-02-12
 **Auditor:** Claude (Session 25 — 4 parallel deep-dive agents)
 **App Version:** Post-Sprint 20 (238 unit tests, 16 E2E tests, TypeScript clean)
-**Overall Verdict: READY** — v2: All 27 findings resolved. v3: All 13 findings resolved. v4: All 11 findings resolved. v5: 2 warnings resolved. v6: Automated WCAG testing added. v7: Final 4-agent deep audit confirms 0 BLOCKERS, 6 SHOULD-FIX. **v8: Email hardening + draft duplicate fix. 487 tests. 0 BLOCKERS.**
+**Overall Verdict: READY** — v2: All 27 findings resolved. v3: All 13 findings resolved. v4: All 11 findings resolved. v5: 2 warnings resolved. v6: Automated WCAG testing added. v7: Final 4-agent deep audit confirms 0 BLOCKERS, 6 SHOULD-FIX. v8: Email hardening + draft duplicate fix. **v9: Supabase multi-device sync. 587 tests. 0 BLOCKERS.**
 
 ---
 
@@ -37,9 +37,9 @@ The EHC Assessment app has been significantly hardened since the initial audit (
 ## Codebase Snapshot
 
 ```
-Source files:  117 (.ts + .tsx) — 48 components, 8 hooks, 53 utils
-Lines of code: ~20,500
-Unit tests:    487/487 PASS (35 files)
+Source files:  151 (.ts + .tsx) — 43 components, 12 hooks, 39 utils
+Lines of code: ~28,500
+Unit tests:    587/587 PASS (43 files)
 E2E tests:     16/16 PASS (Playwright + Chromium: 11 smoke + 5 accessibility)
 TypeScript:    CLEAN (0 errors, strict mode)
 Prod build:    SUCCESS (PWA SW generated, bundle-split, 1408 KiB precache)
@@ -613,3 +613,81 @@ npm audit:   0 vulnerabilities
 4. `style-src 'unsafe-inline'` in CSP — required by Tailwind v4 runtime
 
 *v8 generated 2026-02-16 — Sessions 37-38: email customization, draft dedup fix, production hardening*
+
+---
+
+## Go-Live Audit v9 (Sessions 39-41)
+
+**Date:** 2026-02-20
+**Scope:** Supabase multi-device sync — backend foundation, data sync, real-time, locking, audit, conflict resolution
+**Status:** **0 BLOCKERS. APP REMAINS GO-LIVE READY.**
+
+### What Was Added
+
+| Feature | Files | Description |
+|---------|-------|-------------|
+| **Supabase Client** | `supabaseClient.ts`, `types/supabase.ts` | Singleton client with `isSupabaseConfigured()` guard. Graceful fallback — app works without Supabase. |
+| **Supabase Auth** | `useSupabaseAuth.ts`, `LoginScreen.tsx`, `App.tsx` | Google OAuth via Supabase Auth. Maps to existing `AuthUser`. Falls back to GIS when not configured. |
+| **CRUD Operations** | `supabaseDrafts.ts` | Upsert with optimistic version concurrency, fetch, delete. `forceOverwrite` option for conflict resolution. |
+| **Background Sync** | `useSupabaseSync.ts` | 3s debounced push to Supabase. Offline queue in IndexedDB. Conflict detection via version column. |
+| **Real-Time Drafts** | `useSupabaseDrafts.ts` | Live draft list via Supabase Realtime channels. `postgres_changes` subscription. |
+| **Draft Locking** | `useDraftLock.ts` | Postgres `FOR UPDATE` atomicity. 30-min expiry, 5-min renewal, `beforeunload` release. |
+| **Conflict Resolution** | `ConflictResolutionModal.tsx`, `useSupabaseSync.ts` | Version mismatch → modal (Keep Mine / Use Theirs / Cancel). Keep Mine force-overwrites; Use Theirs reloads. |
+| **Audit Dual-Write** | `auditLog.ts`, `supabaseAuditLog.ts` | Context-based dual-write — IndexedDB + Supabase when `setAuditDualWriteContext()` called. |
+| **Data Migration** | `supabaseMigration.ts` | One-time IndexedDB → Supabase migration with conflict handling. |
+| **Settings Cloud Sync** | `SettingsScreen.tsx` | Connection status, offline queue count, feature list, refresh button. |
+| **Online Status** | `useOnlineStatus.ts` | `navigator.onLine` + event listener hook for sync decisions. |
+
+### Security Considerations
+
+| Aspect | Status | Details |
+|--------|--------|---------|
+| **RLS (Row-Level Security)** | ENABLED | All tables filtered by `org_id = auth.user_org_id()`. No cross-tenant data leakage. |
+| **Optimistic Concurrency** | IMPLEMENTED | `version` column prevents lost updates. `WHERE version = $expected` guard. |
+| **Lock Atomicity** | IMPLEMENTED | Postgres `SELECT ... FOR UPDATE` prevents race conditions in lock acquisition. |
+| **Auth Integration** | SECURE | Supabase JWT used for all API calls. Anon key + RLS (not service role key) on client. |
+| **Graceful Fallback** | VERIFIED | `isSupabaseConfigured()` guard on every Supabase function. App works identically without env vars. |
+| **Offline Queue** | ENCRYPTED | Queued items in IndexedDB `supabaseSyncQueue` store follow existing encryption patterns. |
+| **PHI in Transit** | TLS | All Supabase API calls over HTTPS. Supabase provides AES-256 at rest. |
+
+### HIPAA Impact
+
+| Safeguard | Impact | Assessment |
+|-----------|--------|------------|
+| **Access Control** | Enhanced | RLS isolates data by organization. Auth required for all Supabase operations. |
+| **Audit Controls** | Enhanced | Dual-write audit trail — local IndexedDB + remote Supabase. Cross-device visibility. |
+| **Transmission Security** | Maintained | TLS for all Supabase API calls (same as existing Google Sheets/FDA/Nominatim calls). |
+| **Integrity** | Enhanced | Version column prevents data corruption from concurrent edits. Lock mechanism prevents conflicts. |
+| **BAA** | NOTE | Supabase free tier does not include HIPAA BAA. Team plan ($599/mo) required for formal compliance. For now, same approach as Google Sheets: document the limitation. |
+
+### Test Coverage
+
+| Test File | Tests | What's Covered |
+|-----------|-------|----------------|
+| `useSupabaseSync.test.ts` | 12 | Sync, conflict detection, resolution (keepMine/useTheirs), offline queue, flush, error handling |
+| `useSupabaseDrafts.test.ts` | 15 | Remote draft list, realtime events, filtering, loading states |
+| `useDraftLock.test.ts` | 14 | Lock acquire/release/refresh, expiry, error handling |
+| `supabaseDrafts.test.ts` | 23 | CRUD operations, version concurrency, forceOverwrite |
+| `supabaseMigration.test.ts` | 9 | Migration flow, conflict handling, error cases |
+| `supabaseAuditLog.test.ts` | 8 | Remote audit log write, filtering, error handling |
+| `ConflictResolutionModal.test.tsx` | 10 | Render, buttons, Escape key, overlay click, ARIA |
+| `auditDualWrite.test.ts` | 4 | Context set/clear, dual-write trigger, system user handling |
+| **Total new** | **100** | (587 total, was 487) |
+
+### v9 Verification
+
+```
+TypeScript:  npx tsc --noEmit           → CLEAN (0 errors)
+Unit Tests:  npx vitest run             → 587/587 PASS (43 files)
+E2E Tests:   npx playwright test        → 16/16 PASS (11 smoke + 5 accessibility)
+```
+
+### Known Limitations (Updated)
+
+1. No BAA with Google for Sheets sync — mitigated by PHI masking via `sanitizeForSync()`
+2. Session token in plaintext sessionStorage — mitigated by CSP + 8hr expiry + tab-scoped
+3. No external error monitoring (Sentry/Datadog) — mitigated by audit log + global error handlers
+4. `style-src 'unsafe-inline'` in CSP — required by Tailwind v4 runtime
+5. **NEW:** Supabase free tier has no HIPAA BAA — same approach as Google Sheets. Team plan ($599/mo) available for formal compliance. PHI is encrypted at rest by Supabase (AES-256) and in transit (TLS).
+
+*v9 generated 2026-02-20 — Sessions 39-41: Supabase multi-device sync (Phases 1-4)*

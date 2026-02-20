@@ -467,8 +467,8 @@ All remaining EPIC 19 (HIPAA) and EPIC 20 (UI/UX) stories completed:
 
 ### Future — Backend + Roles + Advanced
 - 7.1 User roles & permissions (admin/nurse/family) → subsumed by EPIC-23.6 (RBAC)
-- 8.1 REST API + database → subsumed by EPIC-23.1 + 23.11
-- 8.2 Replace IndexedDB sync stub with real API → subsumed by EPIC-23.11
+- 8.1 REST API + database → partially implemented via EPIC-23.1 (Supabase Postgres). Full REST API layer (23.11) still pending.
+- 8.2 Replace IndexedDB sync stub with real API → partially done (Supabase sync implemented). Full API layer (23.11) deferred.
 - **EPIC-23: Multi-Tenant SaaS Platform** (12 stories, 3–6 month effort)
 
 ---
@@ -530,15 +530,15 @@ All remaining EPIC 19 (HIPAA) and EPIC 20 (UI/UX) stories completed:
 
 | ID | Story | Acceptance Criteria | Priority | Status |
 |----|-------|-------------------|----------|--------|
-| 23.1 | Server-side database | - PostgreSQL database (Supabase, Neon, or PlanetScale). - Schema: tenants, users, assessments, contracts, audit_logs, config tables. - Row-level security (RLS) policies ensuring tenant data isolation. - Migrations managed via Prisma or Drizzle ORM. - Connection pooling for serverless (PgBouncer or Neon pooler). | P0 | Not Started |
+| 23.1 | Server-side database | - PostgreSQL database (Supabase, Neon, or PlanetScale). - Schema: tenants, users, assessments, contracts, audit_logs, config tables. - Row-level security (RLS) policies ensuring tenant data isolation. - Migrations managed via Prisma or Drizzle ORM. - Connection pooling for serverless (PgBouncer or Neon pooler). | P0 | Done — PostgreSQL via Supabase. Schema: organizations, profiles, drafts, audit_logs, app_config. RLS policies. `supabase/schema.sql`. |
 | 23.2 | Tenant management & onboarding | - Admin super-portal for SIE to create/manage tenants. - Tenant provisioning: create org, generate subdomain or path-based URL, seed default config. - Tenant profile: company name, logo, contact info, plan tier. - Tenant suspension/deactivation without data loss. - Self-service signup flow (optional: manual approval or auto-provision). | P0 | Not Started |
-| 23.3 | Tenant-aware authentication | - Replace current single-org Google OAuth with multi-tenant auth. - Options: Clerk, Auth0, Supabase Auth, or custom JWT. - Each tenant has its own allowed email domain(s) and user roster. - Tenant ID embedded in JWT claims. - Login screen shows tenant branding (logo, colors). - SSO support per tenant (Google Workspace, Azure AD). | P0 | Not Started |
+| 23.3 | Tenant-aware authentication | - Replace current single-org Google OAuth with multi-tenant auth. - Options: Clerk, Auth0, Supabase Auth, or custom JWT. - Each tenant has its own allowed email domain(s) and user roster. - Tenant ID embedded in JWT claims. - Login screen shows tenant branding (logo, colors). - SSO support per tenant (Google Workspace, Azure AD). | P0 | Partial — Supabase Auth with Google OAuth (replaces GIS). Single-org mode implemented. Multi-tenant JWT claims deferred. |
 | 23.4 | Tenant routing & isolation | - Subdomain-based routing (e.g., `acme.ehcassessment.com`) or path-based (`/t/acme/`). - All API requests scoped to tenant via middleware (extract tenant from subdomain/JWT). - Database queries filtered by `tenant_id` at ORM level (no cross-tenant data leakage). - Static assets shared, tenant config fetched at runtime. - Custom domain support per tenant (DNS CNAME). | P0 | Not Started |
 | 23.5 | Per-tenant configuration | - Extend existing Netlify Function shared config to per-tenant config stored in database. - Each tenant configures: Google OAuth Client ID, Spreadsheet ID, sheet names, auth settings, idle timeout. - Config API: `GET /api/tenants/:id/config` (replaces current `/api/config`). - Admin UI for tenant config management. - Per-tenant feature flags (enable/disable modules like Sheets sync, PDF email, contract signing). | P1 | Not Started |
 | 23.6 | Role-based access control (RBAC) | - Roles per tenant: Owner, Admin, Staff (Nurse/Aide), Read-Only. - Owner: full settings + billing access. - Admin: manage users, view all assessments, configure sheets. - Staff: create/edit own assessments, view assigned clients. - Read-Only: view assessments, export PDF (no edit). - Role-field visibility: hide sensitive fields from non-admin roles. - Permissions stored in database, enforced server-side + UI. | P1 | Not Started |
 | 23.7 | Billing & subscriptions (Stripe) | - Stripe integration for recurring billing. - Plan tiers: Free (1 user, 50 assessments/mo), Pro ($X/mo per user), Enterprise (custom). - Usage-based metering: assessment count, PDF exports, Sheets syncs. - Stripe Customer Portal for payment method management. - Webhooks for subscription lifecycle (created, renewed, cancelled, payment failed). - Grace period on payment failure before suspension. - Invoice history in admin portal. | P1 | Not Started |
 | 23.8 | White-label branding | - Per-tenant customization: logo, primary/accent colors, company name in header/footer. - Tenant branding applied via CSS custom properties at runtime. - PDF exports use tenant logo and branding (replace EHC logo). - Email templates branded per tenant. - Configurable via tenant admin settings (logo upload, color picker). - Default EHC branding as fallback. | P2 | Not Started |
-| 23.9 | Data migration from single-tenant | - Migration tool to import existing IndexedDB/localStorage data into tenant database. - Export current single-tenant data as JSON bundle. - Import script maps data to new multi-tenant schema. - Preserve draft history, audit logs, and config. - One-time migration with verification report. | P1 | Not Started |
+| 23.9 | Data migration from single-tenant | - Migration tool to import existing IndexedDB/localStorage data into tenant database. - Export current single-tenant data as JSON bundle. - Import script maps data to new multi-tenant schema. - Preserve draft history, audit logs, and config. - One-time migration with verification report. | P1 | Done — `supabaseMigration.ts` — one-time IndexedDB → Supabase migration with conflict handling. |
 | 23.10 | Centralized analytics dashboard | - SIE super-admin dashboard: total tenants, active users, assessment volume, revenue. - Per-tenant metrics: assessments completed, active users, storage usage, API calls. - Usage trends (daily/weekly/monthly charts). - Export analytics as CSV. - Alerting: tenants approaching plan limits, failed payments. | P2 | Not Started |
 | 23.11 | Multi-tenant API layer | - REST API (Node.js/Express or Netlify Functions) replacing direct IndexedDB access. - Endpoints: assessments CRUD, contracts CRUD, config, users, audit logs. - Authentication middleware (JWT verification + tenant scoping). - Rate limiting per tenant. - API versioning (v1). - OpenAPI/Swagger documentation. | P0 | Not Started |
 | 23.12 | Tenant data export & portability | - Tenant admin can export all org data (assessments, contracts, audit logs) as ZIP. - HIPAA-compliant data deletion: full tenant data purge on account closure. - Data retention policies configurable per tenant. - Right to data portability compliance. | P2 | Not Started |
@@ -554,6 +554,17 @@ All remaining EPIC 19 (HIPAA) and EPIC 20 (UI/UX) stories completed:
 - **HIPAA:** Each tenant's data must be logically isolated; encryption at rest per tenant; BAA required with database provider (Supabase, AWS, etc.)
 - **Current architecture preserved:** The existing React frontend, Zod validation, PDF generation, and offline-first PWA patterns remain — only the data layer and auth change
 - **Backward compatibility:** Single-tenant mode (current) should remain functional as a "self-hosted" option alongside the SaaS deployment
+
+**Implementation Progress (Supabase Backend — Sessions 39-41):**
+- **Database:** Supabase Postgres with JSONB `form_data` column (preserves TypeScript interface shape). Optimistic concurrency via `version` column auto-incremented by trigger. RLS isolates data by `org_id`.
+- **Auth:** Supabase Auth with Google OAuth provider — reuses existing Google Client ID. `useSupabaseAuth` hook maps session to `AuthUser`. Graceful fallback: if Supabase not configured, existing GIS auth still works.
+- **Sync:** Local-first architecture — IndexedDB (500ms debounce) → Supabase (3s debounce). Offline queue in IndexedDB `supabaseSyncQueue` store, drained on reconnect.
+- **Locking:** Application-level columns on `drafts` table + Postgres `FOR UPDATE` functions. 30-min auto-expiry, 5-min renewal, `beforeunload` release.
+- **Conflict Resolution:** Version mismatch detection → `ConflictResolutionModal` (Keep Mine / Use Theirs / Cancel). "Keep Mine" force-overwrites; "Use Theirs" reloads from remote.
+- **Audit:** Dual-write to IndexedDB + Supabase via `setAuditDualWriteContext()` pattern.
+- **Real-Time:** Supabase Realtime channels for live draft list updates across devices.
+- **Tests:** 100 new Supabase-related tests (587 total across 43 files).
+- **Commits:** f314c11 (Phase 1+2), a2d6657 (Phase 3), 3b5bef0 (Phase 4) — ~4,595 new lines.
 
 ---
 
