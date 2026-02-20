@@ -12,13 +12,14 @@ import { encryptObject, decryptObject, encryptCredential, decryptCredential, enc
 import { logger } from './logger';
 
 const DB_NAME = 'ehc-assessment-db';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const DRAFTS_STORE = 'drafts';
 const SYNC_QUEUE_STORE = 'syncQueue';
 const SHEETS_CONFIG_STORE = 'sheetsConfig';
 const AUTH_CONFIG_STORE = 'authConfig';
 export const AUDIT_LOG_STORE = 'auditLogs';
 const EMAIL_CONFIG_STORE = 'emailConfig';
+const SUPABASE_SYNC_QUEUE_STORE = 'supabaseSyncQueue';
 
 export type DraftType = 'assessment' | 'serviceContract';
 
@@ -31,6 +32,8 @@ export interface DraftRecord {
   status: 'draft' | 'submitted';
   currentStep?: number;
   linkedAssessmentId?: string;
+  /** Supabase remote version number for optimistic concurrency. */
+  remoteVersion?: number;
 }
 
 /** Internal stored form — data may be encrypted string or legacy plaintext object */
@@ -79,6 +82,13 @@ export function openDB(): Promise<IDBDatabase> {
       if (oldVersion < 6) {
         if (!db.objectStoreNames.contains(EMAIL_CONFIG_STORE)) {
           db.createObjectStore(EMAIL_CONFIG_STORE, { keyPath: 'id' });
+        }
+      }
+      if (oldVersion < 7) {
+        if (!db.objectStoreNames.contains(SUPABASE_SYNC_QUEUE_STORE)) {
+          const store = db.createObjectStore(SUPABASE_SYNC_QUEUE_STORE, { keyPath: 'id' });
+          store.createIndex('draftId', 'draftId', { unique: false });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
         }
       }
     };
@@ -418,6 +428,55 @@ export async function purgeOldDrafts(daysToKeep: number): Promise<number> {
       store.delete(draft.id);
     }
     tx.oncomplete = () => resolve(toDelete.length);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// --- Supabase Sync Queue ---
+
+export interface SupabaseSyncQueueItem {
+  id: string;
+  draftId: string;
+  action: 'upsert' | 'delete';
+  timestamp: string;
+}
+
+export async function addToSupabaseSyncQueue(item: SupabaseSyncQueueItem): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SUPABASE_SYNC_QUEUE_STORE, 'readwrite');
+    tx.objectStore(SUPABASE_SYNC_QUEUE_STORE).put(item);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getSupabaseSyncQueue(): Promise<SupabaseSyncQueueItem[]> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SUPABASE_SYNC_QUEUE_STORE, 'readonly');
+    const request = tx.objectStore(SUPABASE_SYNC_QUEUE_STORE).getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function removeFromSupabaseSyncQueue(id: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SUPABASE_SYNC_QUEUE_STORE, 'readwrite');
+    tx.objectStore(SUPABASE_SYNC_QUEUE_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function clearSupabaseSyncQueue(): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SUPABASE_SYNC_QUEUE_STORE, 'readwrite');
+    tx.objectStore(SUPABASE_SYNC_QUEUE_STORE).clear();
+    tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }

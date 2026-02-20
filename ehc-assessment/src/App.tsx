@@ -13,6 +13,7 @@ import { googleSignOut } from './utils/googleAuth';
 import { writeEncryptedLocalStorage } from './utils/crypto';
 import { useIdleTimeout } from './hooks/useIdleTimeout';
 import { useDarkMode } from './hooks/useDarkMode';
+import { useSupabaseAuth } from './hooks/useSupabaseAuth';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { logger } from './utils/logger';
@@ -46,12 +47,25 @@ function getSessionUser(): AuthUser | null {
 
 function App() {
   const [view, setView] = useState<AppView>({ screen: 'dashboard' });
-  const [authUser, setAuthUser] = useState<AuthUser | null>(getSessionUser);
+  const [gisAuthUser, setGisAuthUser] = useState<AuthUser | null>(getSessionUser);
   const [authConfig, setAuthConfig] = useState<AuthConfig>(DEFAULT_AUTH_CONFIG);
   const [clientId, setClientId] = useState('');
   const [authLoading, setAuthLoading] = useState(true);
   const [configSource, setConfigSource] = useState<ConfigSource>('local');
   const darkMode = useDarkMode();
+
+  // Supabase auth — returns non-null user when Supabase is configured + user is signed in
+  const {
+    supabaseUser,
+    loading: supabaseLoading,
+    configured: supabaseConfigured,
+    signOut: supabaseSignOut,
+  } = useSupabaseAuth();
+
+  // Determine the effective auth user:
+  // If Supabase is configured → use Supabase user (null until OAuth redirect resolves)
+  // Otherwise → use legacy GIS user from sessionStorage
+  const authUser = supabaseConfigured ? supabaseUser : gisAuthUser;
 
   // Load auth config + client ID on mount (try remote first, fall back to local)
   useEffect(() => {
@@ -69,18 +83,34 @@ function App() {
     })();
   }, []);
 
+  // Log Supabase sign-in when user first appears
+  useEffect(() => {
+    if (supabaseConfigured && supabaseUser) {
+      logAudit('login', undefined, undefined, 'success', supabaseUser.email);
+    }
+    // Only fire when supabaseUser goes from null → defined
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabaseUser?.email]);
+
+  // Legacy GIS login handler
   const handleLogin = useCallback((user: AuthUser) => {
     const withTime = { ...user, loginTime: Date.now() };
-    setAuthUser(withTime);
+    setGisAuthUser(withTime);
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(withTime));
     logAudit('login', undefined, undefined, 'success', user.email);
   }, []);
 
   const handleSignOut = useCallback(async () => {
     logAudit('logout', undefined, undefined, 'success', authUser?.email);
-    setAuthUser(null);
-    sessionStorage.removeItem(SESSION_KEY);
-    googleSignOut();
+
+    if (supabaseConfigured) {
+      await supabaseSignOut();
+    } else {
+      setGisAuthUser(null);
+      sessionStorage.removeItem(SESSION_KEY);
+      googleSignOut();
+    }
+
     // Clear stored OAuth tokens
     try {
       const config = await getSheetsConfig();
@@ -89,7 +119,7 @@ function App() {
       }
     } catch { /* ignore — config may not exist yet */ }
     setView({ screen: 'dashboard' });
-  }, [authUser?.email]);
+  }, [authUser?.email, supabaseConfigured, supabaseSignOut]);
 
   // Idle timeout — only active when auth is required and user is logged in
   const [showIdleWarning, setShowIdleWarning] = useState(false);
@@ -159,8 +189,8 @@ function App() {
     }
   }, []);
 
-  // Show loading while checking auth config
-  if (authLoading) {
+  // Show loading while checking auth config or Supabase session
+  if (authLoading || (supabaseConfigured && supabaseLoading)) {
     return (
       <div className="min-h-screen bg-sky-50/60 dark:bg-slate-900 flex items-center justify-center">
         <LoadingSpinner message="Loading..." />
@@ -169,13 +199,15 @@ function App() {
   }
 
   // Auth gate: if requireAuth is on and user not logged in, show login screen.
-  // Bypass when no clientId is configured — admin must access Settings first.
-  if (authConfig.requireAuth && !authUser && clientId) {
+  // When Supabase is configured, the login screen shows Supabase OAuth button (no clientId needed).
+  // When Supabase is NOT configured, bypass when no clientId — admin must access Settings first.
+  if (authConfig.requireAuth && !authUser && (supabaseConfigured || clientId)) {
     return (
       <LoginScreen
         clientId={clientId}
         allowedEmails={authConfig.allowedEmails}
         onLogin={handleLogin}
+        supabaseLoading={supabaseLoading}
       />
     );
   }

@@ -323,3 +323,85 @@ describe('useAutoSave — mutations & debounce', () => {
     );
   });
 });
+
+// --- onAfterSave callback (AutoSaveOptions) ---
+
+describe('useAutoSave — onAfterSave callback', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    indexedDB = new IDBFactory();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('accepts AutoSaveOptions object with storageKey', async () => {
+    const { result } = renderHook(() =>
+      useAutoSave<TestData>(INITIAL, { storageKey: STORAGE_KEY }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toEqual(INITIAL);
+  });
+
+  it('fires onAfterSave after successful debounced save', async () => {
+    const onAfterSave = vi.fn();
+    const hook = renderHook(() =>
+      useAutoSave<TestData>(INITIAL, { storageKey: STORAGE_KEY, onAfterSave }),
+    );
+    await waitFor(() => expect(hook.result.current.isLoading).toBe(false));
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+
+    act(() => {
+      hook.result.current.updateData({ sectionA: { name: 'Sync', age: 99 } });
+    });
+
+    // Before debounce fires
+    expect(onAfterSave).not.toHaveBeenCalled();
+
+    // Advance past debounce (500ms)
+    await act(async () => {
+      vi.advanceTimersByTime(600);
+    });
+
+    expect(onAfterSave).toHaveBeenCalledTimes(1);
+    const savedData = onAfterSave.mock.calls[0][0] as TestData;
+    expect(savedData.sectionA.name).toBe('Sync');
+  });
+
+  it('does not fire onAfterSave when encryption fails', async () => {
+    const onAfterSave = vi.fn();
+    const hook = renderHook(() =>
+      useAutoSave<TestData>(INITIAL, { storageKey: STORAGE_KEY, onAfterSave }),
+    );
+    await waitFor(() => expect(hook.result.current.isLoading).toBe(false));
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+
+    vi.mocked(encryptObject).mockRejectedValueOnce(new Error('Fail'));
+
+    act(() => {
+      hook.result.current.updateData({ sectionA: { name: 'Bad', age: 0 } });
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(600);
+    });
+
+    expect(onAfterSave).not.toHaveBeenCalled();
+  });
+
+  it('still works with legacy string storageKey argument', async () => {
+    const { result } = renderHook(() => useAutoSave<TestData>(INITIAL, STORAGE_KEY));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toEqual(INITIAL);
+  });
+
+  it('defaults to DEFAULT_STORAGE_KEY when no options provided', async () => {
+    const { result } = renderHook(() => useAutoSave<TestData>(INITIAL));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toEqual(INITIAL);
+  });
+});

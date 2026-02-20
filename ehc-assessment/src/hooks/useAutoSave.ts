@@ -155,7 +155,26 @@ function migrateData(saved: Record<string, unknown>, initial: Record<string, unk
   return result;
 }
 
-export function useAutoSave<T>(initialData: T, storageKey = DEFAULT_STORAGE_KEY) {
+export interface AutoSaveOptions {
+  storageKey?: string;
+  /**
+   * Optional callback fired after each successful debounced localStorage save.
+   * Used by useSupabaseSync to schedule a remote push of the saved data.
+   * Receives the saved data as an opaque value.
+   */
+  onAfterSave?: (data: unknown) => void;
+}
+
+export function useAutoSave<T>(initialData: T, storageKeyOrOptions?: string | AutoSaveOptions) {
+  // Support both legacy string arg and new options object for backward compat
+  const opts: AutoSaveOptions = typeof storageKeyOrOptions === 'string'
+    ? { storageKey: storageKeyOrOptions }
+    : storageKeyOrOptions ?? {};
+  const storageKey = opts.storageKey ?? DEFAULT_STORAGE_KEY;
+  // Ref so callers can change onAfterSave without resetting the save callback
+  const onAfterSaveRef = useRef(opts.onAfterSave);
+  onAfterSaveRef.current = opts.onAfterSave;
+
   const [data, setData] = useState<T>(initialData);
   const [isLoading, setIsLoading] = useState(true);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -208,6 +227,8 @@ export function useAutoSave<T>(initialData: T, storageKey = DEFAULT_STORAGE_KEY)
         const encrypted = await encryptObject(newData);
         localStorage.setItem(storageKey, encrypted);
         setLastSaved(new Date());
+        // Notify sync layer (e.g., useSupabaseSync) that local save completed
+        onAfterSaveRef.current?.(newData);
       } catch (e) {
         logger.error('Auto-save failed:', e);
         logAudit('error', storageKey, `Auto-save encryption failed: ${e instanceof Error ? e.message : String(e)}`, 'failure');
