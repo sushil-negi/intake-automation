@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import type { AssessmentFormData } from '../../types/forms';
+import type { BrandingConfig } from '../../types/branding';
 import { HEADER_HEIGHT, PAGE_WIDTH, PAGE_HEIGHT } from './pdfStyles';
 import { prefetchLogo, stampHeaderOnCurrentPage, renderPageFooter } from './sections/pdfHeader';
 import { renderClientHelpList } from './sections/pdfClientHelpList';
@@ -52,8 +53,11 @@ function stampDraftWatermark(doc: jsPDF): void {
 }
 
 /** Build the assessment PDF document and return it (without saving). */
-export async function buildAssessmentPdf(data: AssessmentFormData): Promise<jsPDF> {
-  await prefetchLogo();
+export async function buildAssessmentPdf(
+  data: AssessmentFormData,
+  branding?: BrandingConfig | null,
+): Promise<jsPDF> {
+  await prefetchLogo(branding);
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -91,8 +95,8 @@ export async function buildAssessmentPdf(data: AssessmentFormData): Promise<jsPD
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    stampHeaderOnCurrentPage(doc, clientName, age, address, date);
-    renderPageFooter(doc, i, totalPages);
+    stampHeaderOnCurrentPage(doc, clientName, age, address, date, 'Client Intake Assessment', branding);
+    renderPageFooter(doc, i, totalPages, branding);
     if (isDraft) {
       stampDraftWatermark(doc);
     }

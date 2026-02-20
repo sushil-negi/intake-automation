@@ -5,6 +5,7 @@ import { logAudit } from '../utils/auditLog';
 import { logger } from '../utils/logger';
 import type { AuthUser } from '../types/auth';
 import { LoadingSpinner } from './ui/LoadingSpinner';
+import { useBranding } from '../contexts/BrandingContext';
 
 interface LoginScreenProps {
   clientId: string;
@@ -15,6 +16,7 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ clientId, allowedEmails, onLogin, supabaseLoading }: LoginScreenProps) {
+  const branding = useBranding();
   const buttonRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState('');
   const [gsiReady, setGsiReady] = useState(isGsiIdLoaded());
@@ -95,7 +97,7 @@ export function LoginScreen({ clientId, allowedEmails, onLogin, supabaseLoading 
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
-          backgroundImage: 'url(/ehc-watermark-h.png)',
+          backgroundImage: `url(${branding.logoUrl})`,
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center center',
           backgroundSize: 'clamp(280px, 55vw, 700px) auto',
@@ -104,11 +106,11 @@ export function LoginScreen({ clientId, allowedEmails, onLogin, supabaseLoading 
       />
 
       {/* Header */}
-      <header className="sticky top-0 z-10 shadow-md" style={{ background: 'linear-gradient(135deg, #1a3a4a 0%, #1f4f5f 50%, #1a3a4a 100%)' }}>
+      <header className="sticky top-0 z-10 shadow-md" style={{ background: 'var(--brand-gradient)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-center">
           <img
-            src="/ehc-watermark-h.png"
-            alt="Executive Home Care of Chester County"
+            src={branding.logoUrl}
+            alt={branding.companyName}
             className="h-10 sm:h-14 w-auto object-contain brightness-0 invert"
           />
         </div>
@@ -118,7 +120,7 @@ export function LoginScreen({ clientId, allowedEmails, onLogin, supabaseLoading 
       <main className="flex-1 flex items-center justify-center px-4 relative z-[1]">
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-8 w-full max-w-sm text-center space-y-6">
           <div>
-            <h1 className="text-xl font-bold text-[#1a3a4a] dark:text-slate-100">
+            <h1 className="text-xl font-bold text-[var(--brand-primary)] dark:text-slate-100">
               Sign In
             </h1>
             <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">

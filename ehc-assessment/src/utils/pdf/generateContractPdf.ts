@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import type { ServiceContractFormData } from '../../types/serviceContract';
+import type { BrandingConfig } from '../../types/branding';
 import { HEADER_HEIGHT, PAGE_WIDTH, PAGE_HEIGHT } from './pdfStyles';
 import { prefetchLogo, stampHeaderOnCurrentPage, renderPageFooter } from './sections/pdfHeader';
 import { renderServiceAgreement } from './sections/pdfServiceAgreement';
@@ -50,8 +51,11 @@ function stampDraftWatermark(doc: jsPDF): void {
 }
 
 /** Build the contract PDF document and return it (without saving). */
-export async function buildContractPdf(data: ServiceContractFormData): Promise<jsPDF> {
-  await prefetchLogo();
+export async function buildContractPdf(
+  data: ServiceContractFormData,
+  branding?: BrandingConfig | null,
+): Promise<jsPDF> {
+  await prefetchLogo(branding);
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -98,8 +102,8 @@ export async function buildContractPdf(data: ServiceContractFormData): Promise<j
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    stampHeaderOnCurrentPage(doc, customerName, age, address, date, 'Service Contract');
-    renderPageFooter(doc, i, totalPages);
+    stampHeaderOnCurrentPage(doc, customerName, age, address, date, 'Service Contract', branding);
+    renderPageFooter(doc, i, totalPages, branding);
     if (isDraft) {
       stampDraftWatermark(doc);
     }

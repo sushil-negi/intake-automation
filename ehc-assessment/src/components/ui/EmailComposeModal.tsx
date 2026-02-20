@@ -232,7 +232,7 @@ export function EmailComposeModal({
             type="button"
             onClick={handleSubmit}
             disabled={sending}
-            className="flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold bg-[#1a3a4a] dark:bg-amber-600 text-white hover:bg-[#15303d] dark:hover:bg-amber-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-wait min-h-[44px]"
+            className="flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold bg-[var(--brand-primary)] dark:bg-amber-600 text-white hover:opacity-90 dark:hover:bg-amber-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-wait min-h-[44px]"
           >
             {sending ? 'Sending...' : 'Send Email'}
           </button>

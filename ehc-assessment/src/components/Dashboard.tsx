@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { DashboardCard } from './ui/DashboardCard';
-import { getAllDrafts, saveDraft } from '../utils/db';
+import { getAllDrafts, saveDraft, getDraft } from '../utils/db';
 import type { DraftType } from '../utils/db';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { logger } from '../utils/logger';
@@ -12,6 +12,7 @@ import type { AuthUser } from '../types/auth';
 import type { ThemeMode } from '../hooks/useDarkMode';
 import { ThemeToggle } from './ui/ThemeToggle';
 import { HelpModal } from './ui/HelpModal';
+import { useBranding } from '../contexts/BrandingContext';
 
 interface DarkModeState {
   mode: ThemeMode;
@@ -31,6 +32,14 @@ interface DashboardProps {
 const STORAGE_KEYS: Record<DraftType, string> = {
   assessment: 'ehc-assessment-draft',
   serviceContract: 'ehc-service-contract-draft',
+};
+
+/** Companion keys that store the IndexedDB draft ID being actively edited.
+ *  Set when resuming a draft, cleared on exit. Auto-rescue uses these to
+ *  avoid creating duplicates after page reload (e.g., dev server restart). */
+const DRAFT_ID_KEYS: Record<DraftType, string> = {
+  assessment: 'ehc-assessment-draft-id',
+  serviceContract: 'ehc-service-contract-draft-id',
 };
 
 /** Try to extract a client name from stored form data (handles encrypted payloads) */
@@ -79,6 +88,7 @@ export function Dashboard({ onNavigate, authUser, onSignOut, darkMode, isSuperAd
   const [showHelp, setShowHelp] = useState(false);
   const isOnline = useOnlineStatus();
   const rescuedRef = useRef(false);
+  const branding = useBranding();
 
   const refreshDraftCount = useCallback(() => {
     getAllDrafts().then(drafts => setDraftCount(drafts.length)).catch(() => {});
@@ -101,7 +111,22 @@ export function Dashboard({ onNavigate, authUser, onSignOut, darkMode, isSuperAd
       ];
       let rescued = false;
       for (const [type, key] of entries) {
+        const draftIdKey = DRAFT_ID_KEYS[type];
         if (await hasUnsavedData(key)) {
+          // Check if this localStorage data belongs to an existing IndexedDB draft
+          // (i.e., user was editing a resumed draft when the page reloaded).
+          const linkedDraftId = localStorage.getItem(draftIdKey);
+          if (linkedDraftId) {
+            const existing = await getDraft(linkedDraftId).catch(() => undefined);
+            if (existing) {
+              // The draft already exists in IndexedDB — no rescue needed.
+              // Just clean up localStorage.
+              localStorage.removeItem(key);
+              localStorage.removeItem(draftIdKey);
+              continue;
+            }
+          }
+
           const raw = localStorage.getItem(key) || '';
           try {
             const data = isEncrypted(raw)
@@ -137,6 +162,8 @@ export function Dashboard({ onNavigate, authUser, onSignOut, darkMode, isSuperAd
           // No meaningful data — just clean up stale empty data
           localStorage.removeItem(key);
         }
+        // Always clean up the companion ID key when returning to dashboard
+        localStorage.removeItem(draftIdKey);
       }
       if (rescued) {
         refreshDraftCount();
@@ -163,7 +190,7 @@ export function Dashboard({ onNavigate, authUser, onSignOut, darkMode, isSuperAd
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
-          backgroundImage: 'url(/ehc-watermark-h.png)',
+          backgroundImage: `url(${branding.logoUrl})`,
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center center',
           backgroundSize: 'clamp(280px, 55vw, 700px) auto',
@@ -179,11 +206,11 @@ export function Dashboard({ onNavigate, authUser, onSignOut, darkMode, isSuperAd
       )}
 
       {/* Header — compact single row */}
-      <header className="sticky top-0 z-10 shadow-md" style={{ background: 'linear-gradient(135deg, #1a3a4a 0%, #1f4f5f 50%, #1a3a4a 100%)' }}>
+      <header className="sticky top-0 z-10 shadow-md" style={{ background: branding.headerGradient }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3">
           <img
-            src="/ehc-watermark-h.png"
-            alt="Executive Home Care of Chester County"
+            src={branding.logoUrl}
+            alt={branding.companyName}
             className="h-10 sm:h-14 w-auto object-contain brightness-0 invert flex-shrink-0"
           />
           <div className="flex items-center gap-2">
@@ -225,11 +252,11 @@ export function Dashboard({ onNavigate, authUser, onSignOut, darkMode, isSuperAd
       {/* Main Content */}
       <main id="main-content" className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-12 relative z-[1]">
         <div className="text-center mb-8 sm:mb-10">
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#1a3a4a] dark:text-slate-100">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[var(--brand-primary)] dark:text-slate-100">
             {authUser ? `Welcome, ${authUser.name.split(' ')[0]}` : 'Welcome'}
           </h1>
           {orgName && (
-            <p className="text-[#1a3a4a]/70 dark:text-slate-300 mt-1 text-sm font-medium">
+            <p className="text-[var(--brand-primary)] dark:text-slate-300 mt-1 text-sm font-medium opacity-70">
               {orgName}
             </p>
           )}

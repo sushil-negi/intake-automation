@@ -239,12 +239,15 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
     updateData(() => draft.data as AssessmentFormData);
     wizard.goToStep(draft.currentStep ?? 0);
     setCurrentDraftId(draft.id);
+    // Store companion ID so auto-rescue can skip this draft after page reload
+    localStorage.setItem('ehc-assessment-draft-id', draft.id);
     setShowDrafts(false);
   };
 
   const handleNewAssessment = () => {
     clearDraft();
     setCurrentDraftId(null);
+    localStorage.removeItem('ehc-assessment-draft-id');
     wizard.goToStep(0);
     setShowDrafts(false);
   };
@@ -263,7 +266,11 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
       currentStep: wizard.currentStep,
     };
     await saveDraft(draft);
-    if (!isUpdate) setCurrentDraftId(id);
+    if (!isUpdate) {
+      setCurrentDraftId(id);
+      // Store companion ID so auto-rescue can skip this draft after page reload
+      localStorage.setItem('ehc-assessment-draft-id', id);
+    }
     logAudit(isUpdate ? 'draft_update' : 'draft_create', id, draft.clientName);
     // Schedule background sync to Supabase
     scheduleDraftSync(draft);
@@ -289,6 +296,7 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
     await flushSync();
     await releaseLock();
     clearDraft();
+    localStorage.removeItem('ehc-assessment-draft-id');
     onGoHome();
   }, [data, wizard.currentStep, currentDraftId, scheduleDraftSync, flushSync, releaseLock, clearDraft, onGoHome]);
 
@@ -413,7 +421,7 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
       onShowDrafts={() => setShowDrafts(prev => !prev)}
       onSaveDraft={handleSaveDraft}
       title="Client Intake Assessment"
-      onGoHome={async () => { await flushSync(); await releaseLock(); onGoHome(); }}
+      onGoHome={async () => { await flushSync(); await releaseLock(); localStorage.removeItem('ehc-assessment-draft-id'); onGoHome(); }}
       hasUnsavedChanges={isDirty}
       onDiscard={clearDraft}
     >
@@ -453,7 +461,7 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
       ) : showTemplatePicker ? (
         <div className="pt-2">
           <div className="text-center mb-6">
-            <h2 className="text-lg font-semibold" style={{ color: '#1a3a4a' }}>Choose a Template</h2>
+            <h2 className="text-lg font-semibold" style={{ color: 'var(--brand-primary)' }}>Choose a Template</h2>
             <p className="text-sm text-gray-500 mt-1">Select a starting template or begin with a blank assessment</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">

@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
               type="button"
               onClick={this.handleReset}
               className="px-4 py-2 text-sm font-medium rounded-lg text-white transition-all"
-              style={{ backgroundColor: '#1a3a4a' }}
+              style={{ backgroundColor: 'var(--brand-primary)' }}
             >
               Try Again
             </button>

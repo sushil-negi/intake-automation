@@ -206,12 +206,15 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
     updateData(() => draft.data as ServiceContractFormData);
     wizard.goToStep(draft.currentStep ?? 0);
     setCurrentDraftId(draft.id);
+    // Store companion ID so auto-rescue can skip this draft after page reload
+    localStorage.setItem('ehc-service-contract-draft-id', draft.id);
     setShowDrafts(false);
   };
 
   const handleNewContract = () => {
     clearDraft();
     setCurrentDraftId(null);
+    localStorage.removeItem('ehc-service-contract-draft-id');
     wizard.goToStep(0);
     setShowDrafts(false);
   };
@@ -236,7 +239,11 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
       linkedAssessmentId,
     };
     await saveDraft(draft);
-    if (!isUpdate) setCurrentDraftId(id);
+    if (!isUpdate) {
+      setCurrentDraftId(id);
+      // Store companion ID so auto-rescue can skip this draft after page reload
+      localStorage.setItem('ehc-service-contract-draft-id', id);
+    }
     logAudit(isUpdate ? 'draft_update' : 'draft_create', id, draft.clientName);
     // Schedule background sync to Supabase
     scheduleDraftSync(draft);
@@ -267,6 +274,7 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
     await flushSync();
     await releaseLock();
     clearDraft();
+    localStorage.removeItem('ehc-service-contract-draft-id');
     onGoHome();
   }, [data, wizard.currentStep, currentDraftId, linkedAssessmentId, scheduleDraftSync, flushSync, releaseLock, clearDraft, onGoHome]);
 
@@ -382,7 +390,7 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
       onShowDrafts={() => setShowDrafts(prev => !prev)}
       onSaveDraft={handleSaveDraft}
       title="Service Contract"
-      onGoHome={async () => { await flushSync(); await releaseLock(); onGoHome(); }}
+      onGoHome={async () => { await flushSync(); await releaseLock(); localStorage.removeItem('ehc-service-contract-draft-id'); onGoHome(); }}
       hasUnsavedChanges={isDirty}
       onDiscard={clearDraft}
     >

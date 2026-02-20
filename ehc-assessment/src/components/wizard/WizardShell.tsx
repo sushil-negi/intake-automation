@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { ProgressBar } from './ProgressBar';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useBranding } from '../../contexts/BrandingContext';
 
 interface WizardShellProps {
   currentStep: number;
@@ -15,7 +16,7 @@ interface WizardShellProps {
   lastSaved: Date | null;
   isSaving: boolean;
   onShowDrafts?: () => void;
-  onSaveDraft?: () => void;
+  onSaveDraft?: () => void | Promise<void>;
   showDrafts?: boolean;
   title?: string;
   onGoHome?: () => void;
@@ -46,6 +47,7 @@ export function WizardShell({
   onDiscard,
   children,
 }: WizardShellProps) {
+  const branding = useBranding();
   const isOnline = useOnlineStatus();
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
@@ -74,7 +76,7 @@ export function WizardShell({
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
-          backgroundImage: 'url(/ehc-watermark-h.png)',
+          backgroundImage: `url(${branding.logoUrl})`,
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center center',
           backgroundSize: 'clamp(280px, 55vw, 700px) auto',
@@ -90,14 +92,14 @@ export function WizardShell({
       )}
 
       {/* Header — compact layout */}
-      <header className="sticky top-0 z-10 shadow-md" style={{ background: 'linear-gradient(135deg, #1a3a4a 0%, #1f4f5f 50%, #1a3a4a 100%)' }}>
+      <header className="sticky top-0 z-10 shadow-md" style={{ background: 'var(--brand-gradient)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2">
           {/* Single row: logo + title left, utilities right */}
           <div className="flex items-center justify-between gap-3 mb-2">
             <div className="flex items-center gap-3 min-w-0">
               <img
-                src="/ehc-watermark-h.png"
-                alt="Executive Home Care of Chester County"
+                src={branding.logoUrl}
+                alt={branding.companyName}
                 className="h-10 sm:h-14 w-auto object-contain brightness-0 invert flex-shrink-0"
               />
               <p className="text-xs sm:text-sm font-medium tracking-wide text-amber-400 truncate">
@@ -158,7 +160,7 @@ export function WizardShell({
 
       {/* Navigation Footer — hidden when viewing drafts */}
       {!showDrafts && (
-        <footer className="fixed bottom-0 left-0 right-0 shadow-lg z-10" style={{ background: 'linear-gradient(135deg, #1a3a4a 0%, #1f4f5f 50%, #1a3a4a 100%)' }}>
+        <footer className="fixed bottom-0 left-0 right-0 shadow-lg z-10" style={{ background: 'var(--brand-gradient)' }}>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2 sm:py-3 flex justify-between items-center">
             <button
               onClick={onBack}
@@ -209,7 +211,7 @@ export function WizardShell({
             ...(onSaveDraft ? [{
               label: 'Save Draft & Exit',
               variant: 'primary' as const,
-              onClick: () => { onSaveDraft(); onDiscard?.(); setShowExitConfirm(false); onGoHome(); },
+              onClick: async () => { await onSaveDraft(); setShowExitConfirm(false); onDiscard?.(); onGoHome(); },
             }] : []),
             {
               label: 'Discard & Exit',

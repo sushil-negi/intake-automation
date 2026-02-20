@@ -1,22 +1,30 @@
 import type { jsPDF } from 'jspdf';
+import type { BrandingConfig } from '../../../types/branding';
+import { DEFAULT_BRANDING } from '../../../types/branding';
 import {
   PDF_MARGIN, PDF_COLORS, FONT_SIZES, CONTENT_WIDTH, HEADER_HEIGHT,
   FIELD_LABEL_WIDTH, FIELD_LINE_HEIGHT, FIELD_GAP,
   SIGNATURE_WIDTH, SIGNATURE_HEIGHT, SIGNATURE_META_FONT,
+  getPdfColors,
 } from '../pdfStyles';
+import type { PdfColors } from '../pdfStyles';
 
-let cachedLogo: string | null = null;
+/** Cache keyed by logo URL so multiple orgs don't collide */
+const logoCache = new Map<string, string>();
 
-async function fetchLogo(): Promise<string | null> {
-  if (cachedLogo) return cachedLogo;
+async function fetchLogo(logoUrl?: string): Promise<string | null> {
+  const url = logoUrl || DEFAULT_BRANDING.logoUrl;
+  const cached = logoCache.get(url);
+  if (cached) return cached;
   try {
-    const res = await fetch('/ehc-watermark-h.png');
+    const res = await fetch(url);
     const blob = await res.blob();
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        cachedLogo = reader.result as string;
-        resolve(cachedLogo);
+        const dataUrl = reader.result as string;
+        logoCache.set(url, dataUrl);
+        resolve(dataUrl);
       };
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(blob);
@@ -27,14 +35,16 @@ async function fetchLogo(): Promise<string | null> {
 }
 
 /** Pre-fetch the logo so it's cached before page rendering starts */
-export async function prefetchLogo(): Promise<void> {
-  await fetchLogo();
+export async function prefetchLogo(branding?: BrandingConfig | null): Promise<void> {
+  await fetchLogo(branding?.logoUrl);
 }
 
 /**
  * Stamp the header band + logo + client banner onto the current page.
  * Called retroactively on every page after all content is rendered,
  * so pages added by autoTable also get the header.
+ *
+ * When branding is provided, uses the org's logo and primary color.
  */
 export function stampHeaderOnCurrentPage(
   doc: jsPDF,
@@ -43,8 +53,11 @@ export function stampHeaderOnCurrentPage(
   address: string,
   date: string,
   documentTitle = 'Client Intake Assessment',
+  branding?: BrandingConfig | null,
 ): void {
-  const logo = cachedLogo;
+  const logoUrl = branding?.logoUrl || DEFAULT_BRANDING.logoUrl;
+  const logo = logoCache.get(logoUrl) ?? null;
+  const colors = getPdfColors(branding);
   const pageW = 215.9;
   const rightX = pageW - PDF_MARGIN.right;
 
@@ -77,24 +90,24 @@ export function stampHeaderOnCurrentPage(
     try {
       doc.addImage(logo, 'PNG', PDF_MARGIN.left, 2, 40, 14);
     } catch {
-      renderFallbackLogoText(doc);
+      renderFallbackLogoText(doc, colors, branding?.companyName);
     }
   } else {
-    renderFallbackLogoText(doc);
+    renderFallbackLogoText(doc, colors, branding?.companyName);
   }
 
   // Title + date right-aligned
   doc.setFontSize(FONT_SIZES.body);
-  doc.setTextColor(...PDF_COLORS.primary);
+  doc.setTextColor(...colors.primary);
   doc.setFont('helvetica', 'bold');
   doc.text(documentTitle, rightX, 8, { align: 'right' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(FONT_SIZES.small);
-  doc.setTextColor(...PDF_COLORS.label);
+  doc.setTextColor(...colors.label);
   doc.text(`Assessment Date: ${date || 'N/A'}`, rightX, 13, { align: 'right' });
 
-  // Thin teal accent bar
-  doc.setFillColor(...PDF_COLORS.primary);
+  // Thin accent bar
+  doc.setFillColor(...colors.primary);
   doc.rect(PDF_MARGIN.left, 17, CONTENT_WIDTH, 1.2, 'F');
 
   // Client banner — light teal tint
@@ -110,10 +123,10 @@ export function stampHeaderOnCurrentPage(
 
   // Client name — left aligned
   const clientLabelText = 'Client: ';
-  doc.setTextColor(...PDF_COLORS.label);
+  doc.setTextColor(...colors.label);
   doc.text(clientLabelText, PDF_MARGIN.left + padH, row1Y);
   const clientLabelW = doc.getTextWidth(clientLabelText);
-  doc.setTextColor(...PDF_COLORS.primary);
+  doc.setTextColor(...colors.primary);
   doc.setFont('helvetica', 'bold');
   doc.text(clientName || '—', PDF_MARGIN.left + padH + clientLabelW, row1Y);
   doc.setFont('helvetica', 'normal');
@@ -124,9 +137,9 @@ export function stampHeaderOnCurrentPage(
   const ageFullText = ageLabelText + ageValText;
   const centerX = PDF_MARGIN.left + CONTENT_WIDTH / 2;
   const ageStartX = centerX - doc.getTextWidth(ageFullText) / 2;
-  doc.setTextColor(...PDF_COLORS.label);
+  doc.setTextColor(...colors.label);
   doc.text(ageLabelText, ageStartX, row1Y);
-  doc.setTextColor(...PDF_COLORS.primary);
+  doc.setTextColor(...colors.primary);
   doc.setFont('helvetica', 'bold');
   doc.text(ageValText, ageStartX + doc.getTextWidth(ageLabelText), row1Y);
   doc.setFont('helvetica', 'normal');
@@ -137,9 +150,9 @@ export function stampHeaderOnCurrentPage(
   const rightEdge = PDF_MARGIN.left + CONTENT_WIDTH - padH;
   const dateFullW = doc.getTextWidth(dateLabelText + dateValText);
   const dateStartX = rightEdge - dateFullW;
-  doc.setTextColor(...PDF_COLORS.label);
+  doc.setTextColor(...colors.label);
   doc.text(dateLabelText, dateStartX, row1Y);
-  doc.setTextColor(...PDF_COLORS.primary);
+  doc.setTextColor(...colors.primary);
   doc.setFont('helvetica', 'bold');
   doc.text(dateValText, dateStartX + doc.getTextWidth(dateLabelText), row1Y);
   doc.setFont('helvetica', 'normal');
@@ -147,22 +160,29 @@ export function stampHeaderOnCurrentPage(
   // --- Row 2: Address (full width, wrapping — max 2 lines to fit banner) ---
   const row2Y = row1Y + row1Height;
   const displayAddrLines = addrLines.slice(0, 2) as string[];
-  doc.setTextColor(...PDF_COLORS.label);
+  doc.setTextColor(...colors.label);
   doc.text(addrLabelText, PDF_MARGIN.left + padH, row2Y);
-  doc.setTextColor(...PDF_COLORS.primary);
+  doc.setTextColor(...colors.primary);
   doc.setFont('helvetica', 'bold');
   doc.text(displayAddrLines, PDF_MARGIN.left + padH + addrLabelW, row2Y);
   doc.setFont('helvetica', 'normal');
 }
 
-function renderFallbackLogoText(doc: jsPDF): void {
+function renderFallbackLogoText(doc: jsPDF, colors: PdfColors, companyName?: string): void {
   doc.setFontSize(12);
-  doc.setTextColor(...PDF_COLORS.primary);
+  doc.setTextColor(...colors.primary);
   doc.setFont('helvetica', 'bold');
-  doc.text('Executive Home Care', PDF_MARGIN.left, 10);
-  doc.setFontSize(8);
-  doc.setTextColor(...PDF_COLORS.accent);
-  doc.text('of Chester County', PDF_MARGIN.left, 14);
+  // Use company name from branding, splitting on common patterns for a two-line layout
+  const name = companyName || DEFAULT_BRANDING.companyName;
+  const ofMatch = name.match(/^(.+?)\s+(of\s+.+)$/i);
+  if (ofMatch) {
+    doc.text(ofMatch[1], PDF_MARGIN.left, 10);
+    doc.setFontSize(8);
+    doc.setTextColor(...colors.accent);
+    doc.text(ofMatch[2], PDF_MARGIN.left, 14);
+  } else {
+    doc.text(name, PDF_MARGIN.left, 10);
+  }
   doc.setFont('helvetica', 'normal');
 }
 
@@ -226,22 +246,29 @@ export function renderField(
   return y + lines.length * FIELD_LINE_HEIGHT + FIELD_GAP;
 }
 
-export function renderPageFooter(doc: jsPDF, pageNumber: number, totalPages: number): void {
+export function renderPageFooter(
+  doc: jsPDF,
+  pageNumber: number,
+  totalPages: number,
+  branding?: BrandingConfig | null,
+): void {
+  const colors = getPdfColors(branding);
+  const footerText = branding?.footerText || DEFAULT_BRANDING.footerText;
   const footerY = 279.4 - 7;
   // Light background instead of heavy teal
   doc.setFillColor(245, 248, 250);
   doc.rect(0, footerY, 215.9, 7, 'F');
-  // Thin teal top line
-  doc.setDrawColor(...PDF_COLORS.primary);
+  // Thin top line
+  doc.setDrawColor(...colors.primary);
   doc.setLineWidth(0.3);
   doc.line(PDF_MARGIN.left, footerY, 215.9 - PDF_MARGIN.right, footerY);
   // Page number centered
   doc.setFontSize(FONT_SIZES.small);
-  doc.setTextColor(...PDF_COLORS.label);
+  doc.setTextColor(...colors.label);
   doc.text(`Page ${pageNumber} of ${totalPages}`, 215.9 / 2, footerY + 4.5, { align: 'center' });
   // Confidential notice right-aligned
   doc.setTextColor(180, 190, 200);
-  doc.text('Executive Home Care \u2014 Confidential', 215.9 - PDF_MARGIN.right, footerY + 4.5, { align: 'right' });
+  doc.text(footerText, 215.9 - PDF_MARGIN.right, footerY + 4.5, { align: 'right' });
 }
 
 /**

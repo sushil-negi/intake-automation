@@ -13,6 +13,11 @@
   --text-muted: #9ca3af;
   --border-primary: #e5e7eb;
   --border-input: #d1d5db;
+
+  /* Brand colors — overridden at runtime by BrandingProvider */
+  --brand-primary: #1a3a4a;
+  --brand-accent: #d4912a;
+  --brand-gradient: linear-gradient(135deg, #1a3a4a 0%, #1f4f5f 50%, #1a3a4a 100%);
 }
 
 .dark {

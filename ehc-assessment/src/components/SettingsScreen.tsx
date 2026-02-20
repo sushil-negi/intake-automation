@@ -24,6 +24,11 @@ import { sendPdfEmail, isValidEmail } from '../utils/emailApi';
 import type { EmailConfig } from '../types/emailConfig';
 import { DEFAULT_EMAIL_CONFIG } from '../types/emailConfig';
 
+import type { UseTenantConfigReturn } from '../types/tenantConfig';
+import { TenantConfigEditor } from './TenantConfigEditor';
+import { BrandingEditor } from './BrandingEditor';
+import { useBranding } from '../contexts/BrandingContext';
+
 interface SettingsScreenProps {
   onGoHome: () => void;
   authUserEmail?: string;
@@ -33,6 +38,7 @@ interface SettingsScreenProps {
   userRole?: string | null;
   isSuperAdmin?: boolean;
   onNavigateAdmin?: () => void;
+  tenantConfig?: UseTenantConfigReturn;
 }
 
 /** Small badge shown next to labels of remotely-managed fields */
@@ -47,7 +53,8 @@ function RemoteBadge() {
   );
 }
 
-export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName, orgSlug, userRole, isSuperAdmin, onNavigateAdmin }: SettingsScreenProps) {
+export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName, orgSlug, userRole, isSuperAdmin, onNavigateAdmin, tenantConfig }: SettingsScreenProps) {
+  const branding = useBranding();
   const isOnline = useOnlineStatus();
 
   // Config state
@@ -440,7 +447,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
-          backgroundImage: 'url(/ehc-watermark-h.png)',
+          backgroundImage: `url(${branding.logoUrl})`,
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center center',
           backgroundSize: 'clamp(280px, 55vw, 700px) auto',
@@ -456,11 +463,11 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
       )}
 
       {/* Header */}
-      <header className="sticky top-0 z-10 shadow-md" style={{ background: 'linear-gradient(135deg, #1a3a4a 0%, #1f4f5f 50%, #1a3a4a 100%)' }}>
+      <header className="sticky top-0 z-10 shadow-md" style={{ background: 'var(--brand-gradient)' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
           <img
-            src="/ehc-watermark-h.png"
-            alt="Executive Home Care of Chester County"
+            src={branding.logoUrl}
+            alt={branding.companyName}
             className="h-9 sm:h-11 w-auto object-contain brightness-0 invert"
           />
           <h1 className="text-sm sm:text-base font-semibold text-white/90 hidden sm:block">Admin / Settings</h1>
@@ -477,12 +484,12 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 pb-8 relative z-[1]">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-[#1a3a4a] dark:text-slate-100">Admin / Settings</h2>
+          <h2 className="text-lg font-bold text-[var(--brand-primary)] dark:text-slate-100">Admin / Settings</h2>
           <button
             type="button"
             onClick={handleSave}
             disabled={saveStatus === 'saving'}
-            className={`px-4 py-2 text-sm font-medium rounded-lg text-white transition-all min-h-[36px] disabled:opacity-50 ${saveStatus === 'saved' ? 'bg-green-500 dark:bg-green-600' : 'bg-[#1a3a4a] dark:bg-slate-600'}`}
+            className={`px-4 py-2 text-sm font-medium rounded-lg text-white transition-all min-h-[36px] disabled:opacity-50 ${saveStatus === 'saved' ? 'bg-green-500 dark:bg-green-600' : 'bg-[var(--brand-primary)] dark:bg-slate-600'}`}
           >
             {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'error' ? 'Error — Retry' : 'Save Settings'}
           </button>
@@ -530,13 +537,13 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                     onClick={() => updateConfig({ authMethod: 'oauth' as AuthMethod })}
                     className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border-2 transition-all min-h-[36px] ${
                       config.authMethod === 'oauth'
-                        ? 'border-[#1a3a4a] bg-[#1a3a4a]/5 dark:border-slate-300 dark:bg-slate-700/50 font-medium text-[#1a3a4a] dark:text-slate-100'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 dark:border-slate-300 dark:bg-slate-700/50 font-medium text-[var(--brand-primary)] dark:text-slate-100'
                         : 'border-gray-200 dark:border-slate-600 text-gray-500 dark:text-slate-400 hover:border-gray-300 dark:hover:border-slate-500 cursor-pointer'
                     }`}
                   >
                     <span className={`inline-block w-3 h-3 rounded-full border-2 flex-shrink-0 ${
                       config.authMethod === 'oauth'
-                        ? 'border-[#1a3a4a] bg-[#1a3a4a] dark:border-slate-200 dark:bg-slate-200'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] dark:border-slate-200 dark:bg-slate-200'
                         : 'border-gray-300 dark:border-slate-500'
                     }`} />
                     OAuth 2.0
@@ -547,13 +554,13 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                     onClick={() => updateConfig({ authMethod: 'apiKey' as AuthMethod })}
                     className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border-2 transition-all min-h-[36px] ${
                       config.authMethod === 'apiKey'
-                        ? 'border-[#1a3a4a] bg-[#1a3a4a]/5 dark:border-slate-300 dark:bg-slate-700/50 font-medium text-[#1a3a4a] dark:text-slate-100'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 dark:border-slate-300 dark:bg-slate-700/50 font-medium text-[var(--brand-primary)] dark:text-slate-100'
                         : 'border-gray-200 dark:border-slate-600 text-gray-500 dark:text-slate-400 hover:border-gray-300 dark:hover:border-slate-500 cursor-pointer'
                     }`}
                   >
                     <span className={`inline-block w-3 h-3 rounded-full border-2 flex-shrink-0 ${
                       config.authMethod === 'apiKey'
-                        ? 'border-[#1a3a4a] bg-[#1a3a4a] dark:border-slate-200 dark:bg-slate-200'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] dark:border-slate-200 dark:bg-slate-200'
                         : 'border-gray-300 dark:border-slate-500'
                     }`} />
                     API Key
@@ -692,7 +699,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                   type="button"
                   onClick={handleTestConnection}
                   disabled={testing || !canTestConnection || !isOnline}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[36px] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[36px] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {testing ? 'Testing...' : 'Test Connection'}
                 </button>
@@ -710,7 +717,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                 <button
                   type="button"
                   onClick={() => setShowSetupHelp(!showSetupHelp)}
-                  className="text-xs font-medium text-[#1a3a4a] dark:text-slate-300 hover:underline flex items-center gap-1"
+                  className="text-xs font-medium text-[var(--brand-primary)] dark:text-slate-300 hover:underline flex items-center gap-1"
                 >
                   <span
                     className="transition-transform duration-200 inline-block"
@@ -1012,7 +1019,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                   type="checkbox"
                   checked={config.autoSyncOnSubmit}
                   onChange={e => updateConfig({ autoSyncOnSubmit: e.target.checked })}
-                  className="accent-[#1a3a4a] w-4 h-4"
+                  className="accent-[var(--brand-primary)] w-4 h-4"
                 />
                 <span className="text-sm text-gray-700 dark:text-slate-300">Auto-sync on form submission{configSource === 'remote' && <RemoteBadge />}</span>
               </label>
@@ -1050,7 +1057,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                             [key]: e.target.checked,
                           },
                         })}
-                        className="accent-[#1a3a4a] w-4 h-4"
+                        className="accent-[var(--brand-primary)] w-4 h-4"
                       />
                       <span className="text-xs text-gray-700 dark:text-slate-300">{label}</span>
                     </label>
@@ -1072,7 +1079,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                       });
                       logAudit('auth_config_change', 'baaConfirmed', checked ? 'BAA confirmed' : 'BAA unconfirmed');
                     }}
-                    className="accent-[#1a3a4a] w-4 h-4"
+                    className="accent-[var(--brand-primary)] w-4 h-4"
                   />
                   <span className="text-sm text-gray-700 dark:text-slate-300">
                     Business Associate Agreement (BAA) is in place with Google Workspace
@@ -1206,13 +1213,13 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                     onClick={() => handleImportTypeChange('assessment')}
                     className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border-2 transition-all min-h-[36px] ${
                       importType === 'assessment'
-                        ? 'border-[#1a3a4a] bg-[#1a3a4a]/5 dark:border-slate-300 dark:bg-slate-700/50 font-medium text-[#1a3a4a] dark:text-slate-100'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 dark:border-slate-300 dark:bg-slate-700/50 font-medium text-[var(--brand-primary)] dark:text-slate-100'
                         : 'border-gray-200 dark:border-slate-600 text-gray-500 dark:text-slate-400 hover:border-gray-300 dark:hover:border-slate-500 cursor-pointer'
                     }`}
                   >
                     <span className={`inline-block w-3 h-3 rounded-full border-2 flex-shrink-0 ${
                       importType === 'assessment'
-                        ? 'border-[#1a3a4a] bg-[#1a3a4a] dark:border-slate-200 dark:bg-slate-200'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] dark:border-slate-200 dark:bg-slate-200'
                         : 'border-gray-300 dark:border-slate-500'
                     }`} />
                     Assessments
@@ -1222,13 +1229,13 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                     onClick={() => handleImportTypeChange('contract')}
                     className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border-2 transition-all min-h-[36px] ${
                       importType === 'contract'
-                        ? 'border-[#1a3a4a] bg-[#1a3a4a]/5 dark:border-slate-300 dark:bg-slate-700/50 font-medium text-[#1a3a4a] dark:text-slate-100'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5 dark:border-slate-300 dark:bg-slate-700/50 font-medium text-[var(--brand-primary)] dark:text-slate-100'
                         : 'border-gray-200 dark:border-slate-600 text-gray-500 dark:text-slate-400 hover:border-gray-300 dark:hover:border-slate-500 cursor-pointer'
                     }`}
                   >
                     <span className={`inline-block w-3 h-3 rounded-full border-2 flex-shrink-0 ${
                       importType === 'contract'
-                        ? 'border-[#1a3a4a] bg-[#1a3a4a] dark:border-slate-200 dark:bg-slate-200'
+                        ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)] dark:border-slate-200 dark:bg-slate-200'
                         : 'border-gray-300 dark:border-slate-500'
                     }`} />
                     Contracts
@@ -1241,7 +1248,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                   type="button"
                   onClick={handleLoadFromSheet}
                   disabled={sheetLoading || !isConfigured || !isOnline}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[36px] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[36px] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {sheetLoading ? 'Loading...' : `Load from "${importType === 'contract' ? config.contractSheetName : config.assessmentSheetName}"`}
                 </button>
@@ -1339,7 +1346,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                     setAuthSaveStatus('saved');
                     setTimeout(() => setAuthSaveStatus('idle'), 2000);
                   }}
-                  className="accent-[#1a3a4a] w-4 h-4"
+                  className="accent-[var(--brand-primary)] w-4 h-4"
                 />
                 <span className="text-sm text-gray-700 dark:text-slate-300">Require Google sign-in to access app</span>
               </label>
@@ -1393,7 +1400,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                           setNewEmail('');
                         }}
                         disabled={!newEmail.trim() || !newEmail.includes('@')}
-                        className="px-3 py-2 text-sm font-medium rounded-lg text-white transition-all min-h-[36px] disabled:opacity-40 disabled:cursor-not-allowed bg-[#1a3a4a] dark:bg-slate-600"
+                        className="px-3 py-2 text-sm font-medium rounded-lg text-white transition-all min-h-[36px] disabled:opacity-40 disabled:cursor-not-allowed bg-[var(--brand-primary)] dark:bg-slate-600"
                       >
                         Add
                       </button>
@@ -1659,7 +1666,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                   type="button"
                   onClick={handleSaveEmailConfig}
                   disabled={emailConfigSaving}
-                  className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a3a4a] text-white hover:bg-[#24505f] dark:bg-slate-600 dark:hover:bg-slate-500 transition-all min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-[var(--brand-primary)] text-white hover:opacity-90 dark:bg-slate-600 dark:hover:bg-slate-500 transition-all min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {emailConfigSaving ? 'Saving...' : 'Save Templates'}
                 </button>
@@ -1714,7 +1721,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                     type="button"
                     onClick={handleTestEmail}
                     disabled={testEmailSending || !testEmailAddr.trim() || !isOnline}
-                    className="px-4 py-2 text-sm font-medium rounded-lg border border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[36px] disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-sm font-medium rounded-lg border border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[36px] disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {testEmailSending ? 'Sending...' : 'Send Test Email'}
                   </button>
@@ -1769,7 +1776,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                       <button
                         type="button"
                         onClick={onNavigateAdmin}
-                        className="mt-2 w-full px-3 py-2 text-xs font-medium rounded-lg bg-[#1a3a4a] dark:bg-slate-600 text-white hover:bg-[#15303d] dark:hover:bg-slate-500 transition-colors min-h-[36px]"
+                        className="mt-2 w-full px-3 py-2 text-xs font-medium rounded-lg bg-[var(--brand-primary)] dark:bg-slate-600 text-white hover:opacity-90 dark:hover:bg-slate-500 transition-colors min-h-[36px]"
                       >
                         🛡️ Go to Tenant Admin Portal
                       </button>
@@ -1838,6 +1845,38 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
             </AccordionSection>
           )}
 
+          {/* Org Configuration section — visible when tenant config is available */}
+          {tenantConfig && supabaseEnabled && (
+            <AccordionSection title="Organization Configuration">
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Per-organization settings stored in the cloud. Changes apply to all users in your organization.
+                </p>
+                <TenantConfigEditor
+                  tenantConfig={tenantConfig}
+                  userRole={userRole}
+                  isSuperAdmin={isSuperAdmin}
+                />
+              </div>
+            </AccordionSection>
+          )}
+
+          {/* Branding section — visible when tenant config is available */}
+          {tenantConfig && supabaseEnabled && (
+            <AccordionSection title="Branding">
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Customize your organization's logo, colors, and company name. Changes are reflected across the app and PDF documents.
+                </p>
+                <BrandingEditor
+                  tenantConfig={tenantConfig}
+                  userRole={userRole}
+                  isSuperAdmin={isSuperAdmin}
+                />
+              </div>
+            </AccordionSection>
+          )}
+
           {/* Section 6: Activity Log — visible to all users */}
           <AccordionSection title="Activity Log">
             <div className="space-y-4">
@@ -1864,7 +1903,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                     }
                   }}
                   disabled={auditLoading}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[36px] disabled:opacity-40"
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[36px] disabled:opacity-40"
                 >
                   {auditLoading ? 'Loading...' : 'Load Activity Log'}
                 </button>

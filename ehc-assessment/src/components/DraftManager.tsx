@@ -14,6 +14,7 @@ import type { EmailConfig } from '../types/emailConfig';
 import { DEFAULT_EMAIL_CONFIG } from '../types/emailConfig';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { EmailComposeModal } from './ui/EmailComposeModal';
+import { useBranding } from '../contexts/BrandingContext';
 
 const ASSESSMENT_STEP_LABELS = [
   'Client Info',
@@ -52,6 +53,7 @@ interface Props {
 }
 
 export function DraftManager({ onResumeDraft, onNewAssessment, currentData, currentStep, supabaseUserId, supabaseOrgId }: Props) {
+  const branding = useBranding();
   const [localDrafts, setLocalDrafts] = useState<DraftRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -168,12 +170,12 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
       let filename: string;
       if (draft.type === 'serviceContract') {
         const { buildContractPdf, getContractFilename } = await import('../utils/pdf/generateContractPdf');
-        const doc = await buildContractPdf(draft.data as ServiceContractFormData);
+        const doc = await buildContractPdf(draft.data as ServiceContractFormData, branding);
         filename = getContractFilename(draft.clientName || 'Unknown');
         blob = doc.output('blob');
       } else {
         const { buildAssessmentPdf, getAssessmentFilename } = await import('../utils/pdf/generatePdf');
-        const doc = await buildAssessmentPdf(draft.data as AssessmentFormData);
+        const doc = await buildAssessmentPdf(draft.data as AssessmentFormData, branding);
         filename = getAssessmentFilename(draft.clientName || 'Unknown');
         blob = doc.output('blob');
       }
@@ -349,14 +351,14 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
               disabled={pdfLoadingId === draft.id}
               onClick={() => handleExportPdf(draft)}
               aria-label={`Export ${draft.clientName || 'draft'} as PDF`}
-              className="px-3 py-1.5 text-xs font-medium rounded-l-lg border border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-wait"
+              className="px-3 py-1.5 text-xs font-medium rounded-l-lg border border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white transition-all min-h-[44px] disabled:opacity-50 disabled:cursor-wait"
             >
               {pdfLoadingId === draft.id ? 'PDF...' : 'PDF'}
             </button>
             <button
               type="button"
               onClick={() => setExportMenuId(exportMenuId === draft.id ? null : draft.id)}
-              className="px-1.5 py-1.5 text-xs font-medium rounded-r-lg border border-l-0 border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white transition-all min-h-[44px]"
+              className="px-1.5 py-1.5 text-xs font-medium rounded-r-lg border border-l-0 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white transition-all min-h-[44px]"
               aria-label="More export options"
               aria-haspopup="menu"
               aria-expanded={exportMenuId === draft.id}

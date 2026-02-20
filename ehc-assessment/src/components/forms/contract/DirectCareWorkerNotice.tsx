@@ -21,7 +21,7 @@ export function DirectCareWorkerNotice({ data, onChange, errors }: Props) {
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4">
         <div className="flex items-start gap-4">
           <div className="flex-1">
-            <h4 className="text-sm font-semibold text-[#1a3a4a] dark:text-slate-100 mb-2">Employee Status</h4>
+            <h4 className="text-sm font-semibold text-[var(--brand-primary)] dark:text-slate-100 mb-2">Employee Status</h4>
             <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 text-sm text-gray-600 dark:text-slate-400 leading-relaxed">
               <p>
                 The direct care worker who will be providing services in my home is an employee
@@ -47,7 +47,7 @@ export function DirectCareWorkerNotice({ data, onChange, errors }: Props) {
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4 opacity-50">
         <div className="flex items-start gap-4">
           <div className="flex-1">
-            <h4 className="text-sm font-semibold text-[#1a3a4a] dark:text-slate-100 mb-2">Registry Information</h4>
+            <h4 className="text-sm font-semibold text-[var(--brand-primary)] dark:text-slate-100 mb-2">Registry Information</h4>
             <div className="bg-gray-100 dark:bg-slate-700/50 rounded-lg p-4 text-sm text-gray-500 dark:text-slate-400 leading-relaxed">
               <p>
                 The direct care worker who will be providing services in my home is not an
@@ -66,7 +66,7 @@ export function DirectCareWorkerNotice({ data, onChange, errors }: Props) {
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4">
         <div className="flex items-start gap-4">
           <div className="flex-1">
-            <h4 className="text-sm font-semibold text-[#1a3a4a] dark:text-slate-100 mb-2">Liability Insurance</h4>
+            <h4 className="text-sm font-semibold text-[var(--brand-primary)] dark:text-slate-100 mb-2">Liability Insurance</h4>
             <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 text-sm text-gray-600 dark:text-slate-400 leading-relaxed">
               <p>
                 I have been informed that Executive Home Care maintains general and professional

@@ -7,6 +7,7 @@
 
 import type { AuthUser } from '../types/auth';
 import type { AppView } from '../types/navigation';
+import { useBranding } from '../contexts/BrandingContext';
 
 interface OrgSetupScreenProps {
   authUser: AuthUser;
@@ -16,17 +17,18 @@ interface OrgSetupScreenProps {
 }
 
 export function OrgSetupScreen({ authUser, isSuperAdmin, onNavigate, onSignOut }: OrgSetupScreenProps) {
+  const branding = useBranding();
   return (
     <div className="min-h-screen bg-sky-50/60 dark:bg-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 sm:p-8 text-center">
         {/* Logo */}
         <img
-          src="/ehc-watermark-h.png"
-          alt="Executive Home Care"
+          src={branding.logoUrl}
+          alt={branding.companyName}
           className="h-16 mx-auto mb-6 object-contain dark:brightness-0 dark:invert"
         />
 
-        <h1 className="text-xl font-bold text-[#1a3a4a] dark:text-slate-100 mb-2">
+        <h1 className="text-xl font-bold text-[var(--brand-primary)] dark:text-slate-100 mb-2">
           Account Setup Required
         </h1>
 
@@ -59,7 +61,7 @@ export function OrgSetupScreen({ authUser, isSuperAdmin, onNavigate, onSignOut }
             <button
               type="button"
               onClick={() => onNavigate({ screen: 'admin' })}
-              className="w-full px-4 py-3 bg-[#1a3a4a] text-white font-medium rounded-lg hover:bg-[#1f4f5f] transition-colors min-h-[44px]"
+              className="w-full px-4 py-3 bg-[var(--brand-primary)] text-white font-medium rounded-lg hover:opacity-90 transition-colors min-h-[44px]"
             >
               🛡️ Go to Admin Portal
             </button>

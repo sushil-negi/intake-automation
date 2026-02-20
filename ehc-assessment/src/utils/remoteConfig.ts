@@ -1,4 +1,4 @@
-import type { SharedConfig, ResolvedConfig } from '../types/remoteConfig';
+import type { SharedConfig, ResolvedConfig, TenantOverrides } from '../types/remoteConfig';
 import type { AuthConfig } from '../types/auth';
 import type { SheetsConfig } from '../types/sheetsConfig';
 import { getAuthConfig, getSheetsConfig } from './db';
@@ -53,64 +53,98 @@ async function fetchRemoteConfig(): Promise<SharedConfig | null> {
 }
 
 /**
- * Resolve the app config by trying remote first, falling back to local IndexedDB.
+ * Resolve the app config using a 3-layer merge hierarchy:
  *
- * Merge strategy:
- * - If remote config is available, it provides the base values for shared fields.
- * - Per-device fields (oauthAccessToken, oauthExpiresAt, apiKey, exportPrivacy,
- *   lastSyncTimestamp, baaInternalNotes) are always loaded from local IndexedDB.
- * - The remote config REPLACES (not merges with) the local shared fields.
+ *   1. Netlify env vars (global defaults via /api/config)
+ *   2. Supabase app_config rows (per-org overrides) — optional tenant layer
+ *   3. Local IndexedDB (per-device: OAuth tokens, API keys, privacy prefs)
+ *
+ * Each layer only overrides the shared fields it provides.
+ * Per-device fields (tokens, keys) are always from local IndexedDB.
+ *
+ * @param tenantOverrides - Optional per-org config from Supabase `app_config`.
+ *   Passed in by the caller (from `useTenantConfig` hook) when available.
  */
-export async function resolveConfig(): Promise<ResolvedConfig> {
+export async function resolveConfig(tenantOverrides?: TenantOverrides | null): Promise<ResolvedConfig> {
   // Always load local config — we need per-device fields regardless
   const [localAuth, localSheets] = await Promise.all([
     getAuthConfig(),
     getSheetsConfig(),
   ]);
 
-  // Attempt remote fetch
+  // Attempt remote fetch (Layer 1: Netlify env vars)
   const remote = await fetchRemoteConfig();
 
-  if (!remote) {
-    return {
-      authConfig: localAuth,
-      sheetsConfig: localSheets,
-      source: 'local',
+  // Start with local config as base
+  let authConfig: AuthConfig = { ...localAuth };
+  let sheetsConfig: SheetsConfig = { ...localSheets };
+  let source: ResolvedConfig['source'] = 'local';
+  let hasTenantOverrides = false;
+
+  // Layer 1: Apply Netlify remote config (if available)
+  if (remote) {
+    authConfig = {
+      requireAuth: remote.auth.requireAuth,
+      allowedEmails: remote.auth.allowedEmails,
+      idleTimeoutMinutes: remote.auth.idleTimeoutMinutes,
     };
+
+    sheetsConfig = {
+      // Remote shared fields
+      oauthClientId: remote.sheets.oauthClientId,
+      spreadsheetId: remote.sheets.spreadsheetId,
+      assessmentSheetName: remote.sheets.assessmentSheetName,
+      contractSheetName: remote.sheets.contractSheetName,
+      authMethod: remote.sheets.authMethod,
+      autoSyncOnSubmit: remote.sheets.autoSyncOnSubmit,
+      baaConfirmed: remote.sheets.baaConfirmed,
+      baaConfirmedDate: remote.sheets.baaConfirmedDate,
+      // Per-device fields from local IndexedDB
+      apiKey: localSheets.apiKey,
+      oauthAccessToken: localSheets.oauthAccessToken,
+      oauthExpiresAt: localSheets.oauthExpiresAt,
+      lastSyncTimestamp: localSheets.lastSyncTimestamp,
+      exportPrivacy: localSheets.exportPrivacy,
+      baaInternalNotes: localSheets.baaInternalNotes,
+    };
+
+    source = 'remote';
+    logger.log('[RemoteConfig] Loaded remote config, timestamp:', remote._meta.timestamp);
   }
 
-  // Merge: remote shared fields + local per-device fields
-  const authConfig: AuthConfig = {
-    requireAuth: remote.auth.requireAuth,
-    allowedEmails: remote.auth.allowedEmails,
-    idleTimeoutMinutes: remote.auth.idleTimeoutMinutes,
-  };
+  // Layer 2: Apply tenant (per-org) overrides from Supabase app_config
+  if (tenantOverrides) {
+    if (tenantOverrides.auth) {
+      const ta = tenantOverrides.auth;
+      if (ta.requireAuth !== undefined) authConfig.requireAuth = ta.requireAuth;
+      if (ta.allowedEmails !== undefined) authConfig.allowedEmails = ta.allowedEmails;
+      if (ta.idleTimeoutMinutes !== undefined) authConfig.idleTimeoutMinutes = ta.idleTimeoutMinutes;
+    }
 
-  const sheetsConfig: SheetsConfig = {
-    // Remote shared fields
-    oauthClientId: remote.sheets.oauthClientId,
-    spreadsheetId: remote.sheets.spreadsheetId,
-    assessmentSheetName: remote.sheets.assessmentSheetName,
-    contractSheetName: remote.sheets.contractSheetName,
-    authMethod: remote.sheets.authMethod,
-    autoSyncOnSubmit: remote.sheets.autoSyncOnSubmit,
-    baaConfirmed: remote.sheets.baaConfirmed,
-    baaConfirmedDate: remote.sheets.baaConfirmedDate,
-    // Per-device fields from local IndexedDB
-    apiKey: localSheets.apiKey,
-    oauthAccessToken: localSheets.oauthAccessToken,
-    oauthExpiresAt: localSheets.oauthExpiresAt,
-    lastSyncTimestamp: localSheets.lastSyncTimestamp,
-    exportPrivacy: localSheets.exportPrivacy,
-    baaInternalNotes: localSheets.baaInternalNotes,
-  };
+    if (tenantOverrides.sheets) {
+      const ts = tenantOverrides.sheets;
+      if (ts.oauthClientId !== undefined) sheetsConfig.oauthClientId = ts.oauthClientId;
+      if (ts.spreadsheetId !== undefined) sheetsConfig.spreadsheetId = ts.spreadsheetId;
+      if (ts.assessmentSheetName !== undefined) sheetsConfig.assessmentSheetName = ts.assessmentSheetName;
+      if (ts.contractSheetName !== undefined) sheetsConfig.contractSheetName = ts.contractSheetName;
+      if (ts.authMethod !== undefined) sheetsConfig.authMethod = ts.authMethod;
+      if (ts.autoSyncOnSubmit !== undefined) sheetsConfig.autoSyncOnSubmit = ts.autoSyncOnSubmit;
+      if (ts.baaConfirmed !== undefined) sheetsConfig.baaConfirmed = ts.baaConfirmed;
+      if (ts.baaConfirmedDate !== undefined) sheetsConfig.baaConfirmedDate = ts.baaConfirmedDate;
+    }
 
-  logger.log('[RemoteConfig] Loaded remote config, timestamp:', remote._meta.timestamp);
+    hasTenantOverrides = true;
+    source = 'tenant';
+    logger.log('[RemoteConfig] Applied tenant config overrides');
+  }
+
+  // Layer 3: Per-device fields are already in sheetsConfig from localSheets above
 
   return {
     authConfig,
     sheetsConfig,
-    source: 'remote',
+    source,
+    hasTenantOverrides,
   };
 }
 

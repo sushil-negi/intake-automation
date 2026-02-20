@@ -1,3 +1,5 @@
+import type { BrandingConfig } from '../../types/branding';
+
 export const PDF_MARGIN = { top: 15, bottom: 20, left: 20, right: 20 };
 
 export const PDF_COLORS = {
@@ -10,6 +12,22 @@ export const PDF_COLORS = {
   red: [239, 68, 68] as [number, number, number],
   green: [34, 197, 94] as [number, number, number],
 };
+
+export type PdfColors = typeof PDF_COLORS;
+
+/**
+ * Get PDF colors from branding config, falling back to defaults.
+ * Only primary and accent colors are overridden — text, label, and
+ * other structural colors stay constant for readability.
+ */
+export function getPdfColors(branding?: BrandingConfig | null): PdfColors {
+  if (!branding) return PDF_COLORS;
+  return {
+    ...PDF_COLORS,
+    primary: branding.primaryColorRgb,
+    accent: branding.accentColorRgb,
+  };
+}
 
 export const FONT_SIZES = {
   title: 15,

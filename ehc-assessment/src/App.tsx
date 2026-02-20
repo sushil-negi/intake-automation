@@ -16,6 +16,9 @@ import { writeEncryptedLocalStorage } from './utils/crypto';
 import { useIdleTimeout } from './hooks/useIdleTimeout';
 import { useDarkMode } from './hooks/useDarkMode';
 import { useSupabaseAuth } from './hooks/useSupabaseAuth';
+import { useTenantConfig } from './hooks/useTenantConfig';
+import { BrandingProvider } from './contexts/BrandingContext';
+import { parseBrandingConfig } from './utils/brandingHelpers';
 import { ConfirmDialog } from './components/ui/ConfirmDialog';
 import { LoadingSpinner } from './components/ui/LoadingSpinner';
 import { logger } from './utils/logger';
@@ -26,7 +29,8 @@ import type { AssessmentFormData } from './types/forms';
 import type { DraftRecord } from './utils/db';
 import type { AuthUser, AuthConfig } from './types/auth';
 import { DEFAULT_AUTH_CONFIG } from './types/auth';
-import type { ConfigSource } from './types/remoteConfig';
+import type { ConfigSource, TenantOverrides } from './types/remoteConfig';
+import type { TenantAuthConfig, TenantSheetsConfig } from './types/tenantConfig';
 
 const SESSION_KEY = 'ehc-auth-user';
 const MAX_SESSION_MS = 8 * 60 * 60 * 1000; // 8-hour absolute max session
@@ -70,16 +74,35 @@ function App() {
     signOut: supabaseSignOut,
   } = useSupabaseAuth();
 
+  // Per-tenant configuration from Supabase app_config table
+  const tenantConfig = useTenantConfig(supabaseOrgId);
+
   // Determine the effective auth user:
   // If Supabase is configured → use Supabase user (null until OAuth redirect resolves)
   // Otherwise → use legacy GIS user from sessionStorage
   const authUser = supabaseConfigured ? supabaseUser : gisAuthUser;
 
+  // Build tenant overrides from Supabase app_config (when available)
+  const tenantOverrides: TenantOverrides | null = (() => {
+    const tenantAuth = tenantConfig.getConfig<TenantAuthConfig>('auth');
+    const tenantSheets = tenantConfig.getConfig<TenantSheetsConfig>('sheets');
+    if (!tenantAuth && !tenantSheets) return null;
+    return {
+      ...(tenantAuth ? { auth: tenantAuth } : {}),
+      ...(tenantSheets ? { sheets: tenantSheets } : {}),
+    };
+  })();
+
+  // Resolve branding from tenant config (falls back to DEFAULT_BRANDING)
+  const brandingConfig = parseBrandingConfig(
+    tenantConfig.getConfig<Record<string, unknown>>('branding'),
+  );
+
   // Load auth config + client ID on mount (try remote first, fall back to local)
   useEffect(() => {
     (async () => {
       try {
-        const resolved = await resolveConfig();
+        const resolved = await resolveConfig(tenantOverrides);
         setAuthConfig(resolved.authConfig);
         setClientId(resolved.sheetsConfig.oauthClientId);
         setConfigSource(resolved.source);
@@ -89,6 +112,7 @@ function App() {
         setAuthLoading(false);
       }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Set dual-write context so logAudit() also writes to Supabase
@@ -177,12 +201,13 @@ function App() {
   // Reload config when returning from settings (config may have changed)
   useEffect(() => {
     if (view.screen === 'dashboard') {
-      resolveConfig().then(resolved => {
+      resolveConfig(tenantOverrides).then(resolved => {
         setAuthConfig(resolved.authConfig);
         setClientId(resolved.sheetsConfig.oauthClientId);
         setConfigSource(resolved.source);
       }).catch(() => {});
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.screen]);
 
   // S5: Data retention — auto-purge drafts and audit logs older than 90 days
@@ -329,18 +354,18 @@ function App() {
           <div
             className="fixed inset-0 pointer-events-none z-0"
             style={{
-              backgroundImage: 'url(/ehc-watermark-h.png)',
+              backgroundImage: `url(${brandingConfig.logoUrl})`,
               backgroundRepeat: 'no-repeat',
               backgroundPosition: 'center center',
               backgroundSize: 'clamp(280px, 55vw, 700px) auto',
               opacity: 0.06,
             }}
           />
-          <header className="sticky top-0 z-10 shadow-md" style={{ background: 'linear-gradient(135deg, #1a3a4a 0%, #1f4f5f 50%, #1a3a4a 100%)' }}>
+          <header className="sticky top-0 z-10 shadow-md" style={{ background: brandingConfig.headerGradient }}>
             <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
               <img
-                src="/ehc-watermark-h.png"
-                alt="Executive Home Care of Chester County"
+                src={brandingConfig.logoUrl}
+                alt={brandingConfig.companyName}
                 className="h-10 sm:h-14 w-auto object-contain brightness-0 invert"
               />
               <button
@@ -361,6 +386,7 @@ function App() {
               onResumeDraft={async (draft: DraftRecord) => {
                 if (draft.type === 'serviceContract') {
                   await writeEncryptedLocalStorage('ehc-service-contract-draft', draft.data);
+                  localStorage.setItem('ehc-service-contract-draft-id', draft.id);
                   setView({
                     screen: 'serviceContract',
                     draftId: draft.id,
@@ -369,6 +395,7 @@ function App() {
                   });
                 } else {
                   await writeEncryptedLocalStorage('ehc-assessment-draft', draft.data);
+                  localStorage.setItem('ehc-assessment-draft-id', draft.id);
                   setView({
                     screen: 'assessment',
                     draftId: draft.id,
@@ -403,6 +430,7 @@ function App() {
           userRole={supabaseProfile?.role}
           isSuperAdmin={isSuperAdmin}
           onNavigateAdmin={isSuperAdmin ? () => setView({ screen: 'admin' }) : undefined}
+          tenantConfig={tenantConfig}
         />
       );
       break;
@@ -412,10 +440,10 @@ function App() {
   }
 
   return (
-    <>
+    <BrandingProvider config={brandingConfig}>
       {content}
       {idleWarningDialog}
-    </>
+    </BrandingProvider>
   );
 }
 

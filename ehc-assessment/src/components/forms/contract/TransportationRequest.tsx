@@ -52,7 +52,7 @@ export function TransportationRequest({ data, onChange, errors }: Props) {
             className="mt-1 w-5 h-5 rounded border-gray-300 dark:border-slate-600 text-amber-600 focus:ring-amber-500"
           />
           <div>
-            <span className="text-sm font-semibold text-[#1a3a4a] dark:text-slate-100">
+            <span className="text-sm font-semibold text-[var(--brand-primary)] dark:text-slate-100">
               Decline Transportation Services
             </span>
             <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
@@ -86,7 +86,7 @@ export function TransportationRequest({ data, onChange, errors }: Props) {
 
           {/* Indemnification Agreement */}
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4">
-            <h4 className="text-sm font-semibold text-[#1a3a4a] dark:text-slate-100 mb-2">Indemnification Agreement</h4>
+            <h4 className="text-sm font-semibold text-[var(--brand-primary)] dark:text-slate-100 mb-2">Indemnification Agreement</h4>
             <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 text-sm text-gray-600 dark:text-slate-400 leading-relaxed">
               <p>
                 I hereby request that Executive Home Care provide transportation services as part

@@ -9,6 +9,7 @@ import type { EmailConfig } from '../../../types/emailConfig';
 import { DEFAULT_EMAIL_CONFIG } from '../../../types/emailConfig';
 import type { ServiceContractFormData } from '../../../types/serviceContract';
 import type { jsPDF } from 'jspdf';
+import { useBranding } from '../../../contexts/BrandingContext';
 
 interface Props {
   data: ServiceContractFormData;
@@ -99,6 +100,7 @@ function SignatureStatus({ label, signed }: { label: string; signed: boolean }) 
 }
 
 export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId, onSubmit }: Props) {
+  const branding = useBranding();
   const [pdfLoading, setPdfLoading] = useState(false);
   const [preview, setPreview] = useState<{ blob: Blob; filename: string } | null>(null);
   const pdfDocRef = useRef<jsPDF | null>(null);
@@ -416,7 +418,7 @@ export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId, onS
             setPdfLoading(true);
             try {
               const { buildContractPdf, getContractFilename } = await import('../../../utils/pdf/generateContractPdf');
-              const doc = await buildContractPdf(data);
+              const doc = await buildContractPdf(data, branding);
               const name = [serviceAgreement.customerInfo.firstName, serviceAgreement.customerInfo.lastName].filter(Boolean).join(' ') || 'Unknown';
               const filename = getContractFilename(name);
               pdfDocRef.current = doc;
@@ -428,7 +430,7 @@ export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId, onS
               setPdfLoading(false);
             }
           }}
-          className="w-full py-3 rounded-xl font-semibold text-sm transition-colors border-2 border-[#1a3a4a] text-[#1a3a4a] hover:bg-[#1a3a4a] hover:text-white active:bg-[#15303d] dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white dark:active:bg-slate-500 disabled:opacity-50 disabled:cursor-wait"
+          className="w-full py-3 rounded-xl font-semibold text-sm transition-colors border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] hover:bg-[var(--brand-primary)] hover:text-white active:opacity-90 dark:border-slate-400 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-white dark:active:bg-slate-500 disabled:opacity-50 disabled:cursor-wait"
         >
           {pdfLoading ? 'Generating PDF...' : 'Preview PDF'}
         </button>
@@ -439,7 +441,7 @@ export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId, onS
             setPdfLoading(true);
             try {
               const { buildContractPdf, getContractFilename } = await import('../../../utils/pdf/generateContractPdf');
-              const doc = await buildContractPdf(data);
+              const doc = await buildContractPdf(data, branding);
               const name = [serviceAgreement.customerInfo.firstName, serviceAgreement.customerInfo.lastName].filter(Boolean).join(' ') || 'Unknown';
               const filename = getContractFilename(name);
               setEmailBlob({ blob: doc.output('blob'), filename });
@@ -470,7 +472,7 @@ export function ContractReviewSubmit({ data, onGoToStep, linkedAssessmentId, onS
                 }
                 const { buildAssessmentPdf, getAssessmentFilename } = await import('../../../utils/pdf/generatePdf');
                 const assessmentData = draft.data as import('../../../types/forms').AssessmentFormData;
-                const doc = await buildAssessmentPdf(assessmentData);
+                const doc = await buildAssessmentPdf(assessmentData, branding);
                 const filename = getAssessmentFilename(assessmentData.clientHelpList.clientName);
                 pdfDocRef.current = doc;
                 setPreview({ blob: doc.output('blob'), filename });

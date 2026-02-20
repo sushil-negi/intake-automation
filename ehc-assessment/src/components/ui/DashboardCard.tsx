@@ -27,7 +27,7 @@ export function DashboardCard({ title, subtitle, icon, onClick, badge, accentCol
       </span>
       <div>
         <h3
-          className="text-lg font-semibold group-hover:opacity-90 transition-opacity text-[#1a3a4a] dark:text-slate-100"
+          className="text-lg font-semibold group-hover:opacity-90 transition-opacity text-[var(--brand-primary)] dark:text-slate-100"
         >
           {title}
         </h3>

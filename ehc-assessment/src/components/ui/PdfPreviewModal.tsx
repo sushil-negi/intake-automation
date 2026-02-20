@@ -51,7 +51,7 @@ export function PdfPreviewModal({ pdfBlob, filename, onDownload, onClose }: PdfP
       <div ref={modalRef} className="relative flex flex-col w-full max-w-6xl h-[95vh] sm:h-[92vh] bg-white dark:bg-slate-800 rounded-xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-slate-700 flex-shrink-0 bg-sky-50 dark:bg-slate-900">
-          <span className="text-sm font-medium truncate mr-4 text-[#1a3a4a] dark:text-slate-100">
+          <span className="text-sm font-medium truncate mr-4 text-[var(--brand-primary)] dark:text-slate-100">
             {filename}
           </span>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -59,7 +59,7 @@ export function PdfPreviewModal({ pdfBlob, filename, onDownload, onClose }: PdfP
               type="button"
               onClick={() => { onDownload(); onClose(); }}
               aria-label="Download PDF"
-              className="px-4 py-1.5 text-sm font-semibold rounded-lg text-white bg-[#1a3a4a] dark:bg-amber-600 hover:bg-[#163440] dark:hover:bg-amber-700 transition-colors min-h-[36px]"
+              className="px-4 py-1.5 text-sm font-semibold rounded-lg text-white bg-[var(--brand-primary)] dark:bg-amber-600 hover:opacity-90 dark:hover:bg-amber-700 transition-colors min-h-[36px]"
             >
               Download
             </button>

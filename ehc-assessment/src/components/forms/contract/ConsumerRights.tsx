@@ -50,7 +50,7 @@ export function ConsumerRights({ data, onChange, errors }: Props) {
 
       {/* Consumer Rights */}
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4">
-        <h4 className="text-sm font-semibold text-[#1a3a4a] dark:text-slate-100 mb-3">Consumer Rights</h4>
+        <h4 className="text-sm font-semibold text-[var(--brand-primary)] dark:text-slate-100 mb-3">Consumer Rights</h4>
         <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 text-sm text-gray-600 dark:text-slate-400 leading-relaxed">
           <ol className="list-decimal list-outside ml-5 space-y-2">
             {RIGHTS.map((right, i) => (
@@ -62,7 +62,7 @@ export function ConsumerRights({ data, onChange, errors }: Props) {
 
       {/* Consumer Responsibilities */}
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 p-4">
-        <h4 className="text-sm font-semibold text-[#1a3a4a] dark:text-slate-100 mb-3">Consumer Responsibilities</h4>
+        <h4 className="text-sm font-semibold text-[var(--brand-primary)] dark:text-slate-100 mb-3">Consumer Responsibilities</h4>
         <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 text-sm text-gray-600 dark:text-slate-400 leading-relaxed">
           <p className="mb-2">Each consumer/client is responsible for the following:</p>
           <ol className="list-decimal list-outside ml-5 space-y-2">

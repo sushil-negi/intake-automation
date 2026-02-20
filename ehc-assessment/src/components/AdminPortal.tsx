@@ -8,6 +8,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAdminApi } from '../hooks/useAdminApi';
 import { ConfirmDialog } from './ui/ConfirmDialog';
+import { useBranding } from '../contexts/BrandingContext';
+import { useTenantConfig } from '../hooks/useTenantConfig';
+import { BrandingEditor } from './BrandingEditor';
+import { AccordionSection } from './ui/AccordionSection';
 import type { OrgSummary, UserProfile } from '../types/admin';
 
 interface AdminPortalProps {
@@ -42,6 +46,7 @@ type AdminView =
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function AdminPortal({ onGoHome }: AdminPortalProps) {
+  const branding = useBranding();
   const api = useAdminApi();
 
   const [adminView, setAdminView] = useState<AdminView>({ tab: 'orgs' });
@@ -66,7 +71,7 @@ export function AdminPortal({ onGoHome }: AdminPortalProps) {
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{
-          backgroundImage: 'url(/ehc-watermark-h.png)',
+          backgroundImage: `url(${branding.logoUrl})`,
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center center',
           backgroundSize: 'clamp(280px, 55vw, 700px) auto',
@@ -77,13 +82,13 @@ export function AdminPortal({ onGoHome }: AdminPortalProps) {
       {/* Header */}
       <header
         className="sticky top-0 z-10 shadow-md"
-        style={{ background: 'linear-gradient(135deg, #1a3a4a 0%, #1f4f5f 50%, #1a3a4a 100%)' }}
+        style={{ background: 'var(--brand-gradient)' }}
       >
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img
-              src="/ehc-watermark-h.png"
-              alt="Executive Home Care"
+              src={branding.logoUrl}
+              alt={branding.companyName}
               className="h-10 sm:h-14 w-auto object-contain brightness-0 invert flex-shrink-0"
             />
             <span className="text-white/70 text-xs font-medium hidden sm:inline">
@@ -180,13 +185,13 @@ function OrgList({ orgs, loading, onSelectOrg, onCreateOrg }: OrgListProps) {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold text-[#1a3a4a] dark:text-slate-100">
+        <h1 className="text-xl sm:text-2xl font-bold text-[var(--brand-primary)] dark:text-slate-100">
           🛡️ Tenant Administration
         </h1>
         <button
           type="button"
           onClick={onCreateOrg}
-          className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a3a4a] dark:bg-slate-600 text-white hover:bg-[#15303d] dark:hover:bg-slate-500 transition-colors min-h-[36px]"
+          className="px-4 py-2 text-sm font-medium rounded-lg bg-[var(--brand-primary)] dark:bg-slate-600 text-white hover:opacity-90 dark:hover:bg-slate-500 transition-colors min-h-[36px]"
         >
           + New Organization
         </button>
@@ -221,7 +226,7 @@ function OrgList({ orgs, loading, onSelectOrg, onCreateOrg }: OrgListProps) {
               onClick={() => onSelectOrg(org)}
               className="w-full text-left px-4 py-3 sm:grid sm:grid-cols-[1fr_120px_80px_80px_100px] sm:gap-2 sm:items-center flex flex-col gap-1 border-t border-gray-100 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors group"
             >
-              <span className="font-medium text-sm text-gray-900 dark:text-slate-100 group-hover:text-[#1a3a4a] dark:group-hover:text-white truncate">
+              <span className="font-medium text-sm text-gray-900 dark:text-slate-100 group-hover:text-[var(--brand-primary)] dark:group-hover:text-white truncate">
                 {org.name}
               </span>
               <span className="text-xs text-gray-500 dark:text-slate-400 font-mono truncate">
@@ -296,7 +301,7 @@ function CreateOrgForm({ loading, onSubmit, onCancel }: CreateOrgFormProps) {
 
   return (
     <>
-      <h1 className="text-xl sm:text-2xl font-bold text-[#1a3a4a] dark:text-slate-100 mb-6">
+      <h1 className="text-xl sm:text-2xl font-bold text-[var(--brand-primary)] dark:text-slate-100 mb-6">
         Create Organization
       </h1>
 
@@ -348,7 +353,7 @@ function CreateOrgForm({ loading, onSubmit, onCancel }: CreateOrgFormProps) {
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg bg-[#1a3a4a] dark:bg-slate-600 text-white hover:bg-[#15303d] dark:hover:bg-slate-500 transition-colors disabled:opacity-50 min-h-[44px]"
+            className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg bg-[var(--brand-primary)] dark:bg-slate-600 text-white hover:opacity-90 dark:hover:bg-slate-500 transition-colors disabled:opacity-50 min-h-[44px]"
           >
             {loading ? 'Creating…' : 'Create Organization'}
           </button>
@@ -375,6 +380,7 @@ interface OrgDetailProps {
 }
 
 function OrgDetail({ org, api, onBack, onOrgUpdated }: OrgDetailProps) {
+  const tenantConfig = useTenantConfig(org.id);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [confirmAction, setConfirmAction] = useState<
@@ -420,7 +426,7 @@ function OrgDetail({ org, api, onBack, onOrgUpdated }: OrgDetailProps) {
           >
             ← Back to Organizations
           </button>
-          <h1 className="text-xl sm:text-2xl font-bold text-[#1a3a4a] dark:text-slate-100">
+          <h1 className="text-xl sm:text-2xl font-bold text-[var(--brand-primary)] dark:text-slate-100">
             {org.name}
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400 font-mono mt-0.5">
@@ -545,6 +551,21 @@ function OrgDetail({ org, api, onBack, onOrgUpdated }: OrgDetailProps) {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Branding — super-admin can configure during onboarding */}
+      <div className="mt-6">
+        <AccordionSection title="Branding">
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500 dark:text-slate-400">
+              Customize this organization's logo, colors, and company name. Changes are reflected in the app UI and PDF documents for all users in this org.
+            </p>
+            <BrandingEditor
+              tenantConfig={tenantConfig}
+              isSuperAdmin={true}
+            />
+          </div>
+        </AccordionSection>
       </div>
 
       {/* Confirmation dialogs */}
@@ -681,7 +702,7 @@ function InviteUserForm({ orgId: _orgId, loading, onInvite }: InviteUserFormProp
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 text-sm font-medium rounded-lg bg-[#1a3a4a] dark:bg-slate-600 text-white hover:bg-[#15303d] dark:hover:bg-slate-500 transition-colors disabled:opacity-50 min-h-[38px] whitespace-nowrap"
+          className="px-4 py-2 text-sm font-medium rounded-lg bg-[var(--brand-primary)] dark:bg-slate-600 text-white hover:opacity-90 dark:hover:bg-slate-500 transition-colors disabled:opacity-50 min-h-[38px] whitespace-nowrap"
         >
           {loading ? 'Inviting…' : 'Invite'}
         </button>

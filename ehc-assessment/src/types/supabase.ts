@@ -63,7 +63,7 @@ export interface AuditLogRow {
 export interface AppConfigRow {
   id: string;
   org_id: string;
-  config_type: 'auth' | 'sheets' | 'email';
+  config_type: 'auth' | 'sheets' | 'email' | 'branding';
   config_data: Record<string, unknown>;
   updated_by: string | null;
   updated_at: string;

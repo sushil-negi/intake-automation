@@ -36,7 +36,7 @@ export function ConfirmDialog({ title, message, actions, onClose }: ConfirmDialo
   }, []);
 
   const variantClasses: Record<DialogAction['variant'], string> = {
-    primary: 'bg-[#1a3a4a] dark:bg-slate-600 text-white hover:bg-[#15303d] dark:hover:bg-slate-500',
+    primary: 'bg-[var(--brand-primary)] dark:bg-slate-600 text-white hover:opacity-90 dark:hover:bg-slate-500',
     danger: 'bg-red-600 text-white hover:bg-red-700',
     secondary: 'border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700',
   };
