@@ -8,9 +8,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 const CSP_CONTENT = [
   "default-src 'self'",
   "script-src 'self' https://accounts.google.com",
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com",
   "connect-src 'self' https://sheets.googleapis.com https://accounts.google.com https://nominatim.openstreetmap.org https://api.fda.gov https://*.supabase.co wss://*.supabase.co",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://*.googleusercontent.com",
   "font-src 'self'",
   "object-src 'none'",
   "base-uri 'self'",
