@@ -57,6 +57,8 @@ function App() {
   // Supabase auth — returns non-null user when Supabase is configured + user is signed in
   const {
     supabaseUser,
+    userId: supabaseUserId,
+    orgId: supabaseOrgId,
     loading: supabaseLoading,
     configured: supabaseConfigured,
     signOut: supabaseSignOut,
@@ -258,6 +260,8 @@ function App() {
             resumeStep={view.resumeStep}
             draftId={view.draftId}
             authUserName={authUser?.name}
+            supabaseUserId={supabaseUserId}
+            supabaseOrgId={supabaseOrgId}
           />
         </ErrorBoundary>
       );
@@ -273,6 +277,8 @@ function App() {
             draftId={view.draftId}
             linkedAssessmentId={view.linkedAssessmentId}
             authUserName={authUser?.name}
+            supabaseUserId={supabaseUserId}
+            supabaseOrgId={supabaseOrgId}
           />
         </ErrorBoundary>
       );
@@ -311,6 +317,8 @@ function App() {
             <DraftManager
               currentData={null}
               currentStep={0}
+              supabaseUserId={supabaseUserId}
+              supabaseOrgId={supabaseOrgId}
               onResumeDraft={async (draft: DraftRecord) => {
                 if (draft.type === 'serviceContract') {
                   await writeEncryptedLocalStorage('ehc-service-contract-draft', draft.data);

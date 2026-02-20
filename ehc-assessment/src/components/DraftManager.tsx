@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { getAllDrafts, deleteDraft, saveDraft, getEmailConfig, type DraftRecord } from '../utils/db';
 import { exportJSON, exportCSV, importJSON, exportAllDraftsZip } from '../utils/exportData';
 import { logger } from '../utils/logger';
@@ -6,6 +6,8 @@ import { logAudit } from '../utils/auditLog';
 import { resolveTemplate, resolveEmailBody } from '../utils/emailTemplates';
 import { useSheetsSync } from '../hooks/useSheetsSync';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useSupabaseDrafts } from '../hooks/useSupabaseDrafts';
+import { isSupabaseConfigured } from '../utils/supabaseClient';
 import type { AssessmentFormData } from '../types/forms';
 import type { ServiceContractFormData } from '../types/serviceContract';
 import type { EmailConfig } from '../types/emailConfig';
@@ -43,10 +45,14 @@ interface Props {
   onNewAssessment: () => void;
   currentData: AssessmentFormData | null;
   currentStep: number;
+  /** Supabase auth.uid — for real-time drafts. */
+  supabaseUserId?: string | null;
+  /** Supabase org_id — for real-time drafts. */
+  supabaseOrgId?: string | null;
 }
 
-export function DraftManager({ onResumeDraft, onNewAssessment, currentData, currentStep }: Props) {
-  const [drafts, setDrafts] = useState<DraftRecord[]>([]);
+export function DraftManager({ onResumeDraft, onNewAssessment, currentData, currentStep, supabaseUserId, supabaseOrgId }: Props) {
+  const [localDrafts, setLocalDrafts] = useState<DraftRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
@@ -58,6 +64,26 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
   const [importError, setImportError] = useState('');
   const [zipExporting, setZipExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Real-time drafts from Supabase (when configured)
+  const supabaseConfigured = isSupabaseConfigured();
+  const { drafts: remoteDrafts, loading: remoteLoading, realtimeConnected } = useSupabaseDrafts({
+    orgId: supabaseOrgId ?? null,
+    enabled: supabaseConfigured && !!supabaseOrgId,
+  });
+
+  // Merge local + remote drafts: remote is source of truth, local fills offline-only
+  const drafts = useMemo(() => {
+    if (!supabaseConfigured) return localDrafts;
+    const byId = new Map<string, DraftRecord>();
+    for (const rd of remoteDrafts) byId.set(rd.id, rd);
+    for (const ld of localDrafts) {
+      if (!byId.has(ld.id)) byId.set(ld.id, ld);
+    }
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime(),
+    );
+  }, [localDrafts, remoteDrafts, supabaseConfigured]);
 
   // Sheets sync
   const { config: sheetsConfig, syncDraft } = useSheetsSync();
@@ -218,7 +244,7 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
   const loadDrafts = async () => {
     try {
       const allDrafts = await getAllDrafts();
-      setDrafts(allDrafts.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()));
+      setLocalDrafts(allDrafts.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()));
     } catch (e) {
       logger.error('Failed to load drafts:', e);
     }
@@ -273,7 +299,7 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
     return (a.clientName || '').localeCompare(b.clientName || '');
   });
 
-  if (loading) {
+  if (loading || (supabaseConfigured && remoteLoading && localDrafts.length === 0)) {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner message="Loading drafts..." size="sm" />
@@ -436,7 +462,15 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Saved Drafts</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Saved Drafts</h3>
+          {supabaseConfigured && (
+            <span
+              title={realtimeConnected ? 'Real-time sync active' : 'Real-time sync disconnected'}
+              className={`inline-block w-2 h-2 rounded-full ${realtimeConnected ? 'bg-green-500' : 'bg-gray-400'}`}
+            />
+          )}
+        </div>
         <div className="flex gap-2 flex-wrap">
           <input
             ref={fileInputRef}

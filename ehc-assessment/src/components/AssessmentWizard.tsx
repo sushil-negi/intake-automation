@@ -19,6 +19,8 @@ import { StaffNoteField } from './ui/StaffNoteField';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { saveDraft, type DraftRecord } from '../utils/db';
 import { logAudit } from '../utils/auditLog';
+import { useDraftLock } from '../hooks/useDraftLock';
+import { isSupabaseConfigured } from '../utils/supabaseClient';
 import type { AssessmentFormData } from '../types/forms';
 
 const STEPS = [
@@ -58,13 +60,24 @@ interface AssessmentWizardProps {
   resumeStep?: number;
   draftId?: string;
   authUserName?: string;
+  /** Supabase auth.uid — passed from App for lock management. */
+  supabaseUserId?: string | null;
+  /** Supabase org_id — passed from App for lock management. */
+  supabaseOrgId?: string | null;
 }
 
-export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, draftId, authUserName }: AssessmentWizardProps) {
+export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, draftId, authUserName, supabaseUserId, supabaseOrgId }: AssessmentWizardProps) {
   const wizard = useFormWizard(STEPS.length, resumeStep);
   const { data, updateData, lastSaved, isSaving, isLoading, isDirty, clearDraft, hasDraft } = useAutoSave<AssessmentFormData>(INITIAL_DATA);
   const [showDrafts, setShowDrafts] = useState(false);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(draftId ?? null);
+
+  // Lock management — acquire lock when editing an existing draft
+  const { lockedByOther, otherLockInfo, retryLock, releaseLock } = useDraftLock({
+    draftId: currentDraftId,
+    userId: supabaseUserId ?? null,
+    enabled: isSupabaseConfigured() && !!currentDraftId && !!supabaseUserId,
+  });
   const { errors, validate, clearErrors, clearFieldErrors } = useStepValidation();
 
   // Show template picker for fresh assessments (no resume, no existing draft in localStorage)
@@ -357,11 +370,44 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
       onShowDrafts={() => setShowDrafts(prev => !prev)}
       onSaveDraft={handleSaveDraft}
       title="Client Intake Assessment"
-      onGoHome={onGoHome}
+      onGoHome={async () => { await releaseLock(); onGoHome(); }}
       hasUnsavedChanges={isDirty}
       onDiscard={clearDraft}
     >
-      {showTemplatePicker ? (
+      {lockedByOther ? (
+        <div className="pt-6">
+          <div className="rounded-xl border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6 text-center">
+            <div className="text-3xl mb-3">🔒</div>
+            <h2 className="text-lg font-semibold text-red-800 dark:text-red-300 mb-2">
+              Draft Locked
+            </h2>
+            <p className="text-sm text-red-700 dark:text-red-400 mb-1">
+              This draft is currently being edited by another user{otherLockInfo?.lockDeviceId ? ` on device ${otherLockInfo.lockDeviceId.slice(0, 12)}...` : ''}.
+            </p>
+            {otherLockInfo?.lockedAt && (
+              <p className="text-xs text-red-600 dark:text-red-500 mb-4">
+                Locked since {new Date(otherLockInfo.lockedAt).toLocaleString()}
+              </p>
+            )}
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={retryLock}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-800/50 transition-all min-h-[44px]"
+              >
+                Retry
+              </button>
+              <button
+                type="button"
+                onClick={onGoHome}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 transition-all min-h-[44px]"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : showTemplatePicker ? (
         <div className="pt-2">
           <div className="text-center mb-6">
             <h2 className="text-lg font-semibold" style={{ color: '#1a3a4a' }}>Choose a Template</h2>
