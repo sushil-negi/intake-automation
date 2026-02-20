@@ -20,7 +20,10 @@ import { LoadingSpinner } from './ui/LoadingSpinner';
 import { saveDraft, type DraftRecord } from '../utils/db';
 import { logAudit } from '../utils/auditLog';
 import { useDraftLock } from '../hooks/useDraftLock';
+import { useSupabaseSync } from '../hooks/useSupabaseSync';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { isSupabaseConfigured } from '../utils/supabaseClient';
+import { ConflictResolutionModal } from './ui/ConflictResolutionModal';
 import type { AssessmentFormData } from '../types/forms';
 
 const STEPS = [
@@ -78,6 +81,22 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
     userId: supabaseUserId ?? null,
     enabled: isSupabaseConfigured() && !!currentDraftId && !!supabaseUserId,
   });
+
+  // Remote sync — background push to Supabase with conflict detection
+  const isOnline = useOnlineStatus();
+  const {
+    status: syncStatus,
+    conflictInfo,
+    resolveConflict,
+    dismissConflict,
+    scheduleDraftSync,
+    flushSync,
+  } = useSupabaseSync({
+    userId: supabaseUserId ?? null,
+    orgId: supabaseOrgId ?? null,
+    online: isOnline,
+  });
+
   const { errors, validate, clearErrors, clearFieldErrors } = useStepValidation();
 
   // Show template picker for fresh assessments (no resume, no existing draft in localStorage)
@@ -246,9 +265,11 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
     await saveDraft(draft);
     if (!isUpdate) setCurrentDraftId(id);
     logAudit(isUpdate ? 'draft_update' : 'draft_create', id, draft.clientName);
+    // Schedule background sync to Supabase
+    scheduleDraftSync(draft);
     setDraftSaveMessage('Draft saved!');
     setTimeout(() => setDraftSaveMessage(''), 2000);
-  }, [data, wizard.currentStep, currentDraftId]);
+  }, [data, wizard.currentStep, currentDraftId, scheduleDraftSync]);
 
   const renderStep = () => {
     const formError = errors._form ? (
@@ -370,7 +391,7 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
       onShowDrafts={() => setShowDrafts(prev => !prev)}
       onSaveDraft={handleSaveDraft}
       title="Client Intake Assessment"
-      onGoHome={async () => { await releaseLock(); onGoHome(); }}
+      onGoHome={async () => { await flushSync(); await releaseLock(); onGoHome(); }}
       hasUnsavedChanges={isDirty}
       onDiscard={clearDraft}
     >
@@ -470,6 +491,33 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
           )}
           {renderStep()}
         </>
+      )}
+
+      {/* Conflict resolution modal — shown when background sync detects version mismatch */}
+      {conflictInfo && (
+        <ConflictResolutionModal
+          clientName={conflictInfo.clientName}
+          remoteUpdatedAt={conflictInfo.remoteUpdatedAt}
+          onKeepMine={async () => {
+            const resolved = await resolveConflict('keepMine');
+            if (resolved) {
+              setDraftSaveMessage('Conflict resolved — your version kept');
+              setTimeout(() => setDraftSaveMessage(''), 3000);
+            }
+          }}
+          onUseTheirs={async () => {
+            const resolved = await resolveConflict('useTheirs');
+            if (resolved) {
+              updateData(() => resolved.data as AssessmentFormData);
+              if (resolved.currentStep !== undefined) {
+                wizard.goToStep(resolved.currentStep);
+              }
+              setDraftSaveMessage('Conflict resolved — remote version loaded');
+              setTimeout(() => setDraftSaveMessage(''), 3000);
+            }
+          }}
+          onCancel={dismissConflict}
+        />
       )}
     </WizardShell>
   );

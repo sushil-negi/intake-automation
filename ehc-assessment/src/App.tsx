@@ -8,7 +8,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { mapAssessmentToContract } from './utils/prefill';
 import { saveDraft, getSheetsConfig, saveSheetsConfig, purgeOldDrafts } from './utils/db';
-import { purgeOldLogs } from './utils/auditLog';
+import { purgeOldLogs, setAuditDualWriteContext } from './utils/auditLog';
 import { googleSignOut } from './utils/googleAuth';
 import { writeEncryptedLocalStorage } from './utils/crypto';
 import { useIdleTimeout } from './hooks/useIdleTimeout';
@@ -84,6 +84,15 @@ function App() {
       }
     })();
   }, []);
+
+  // Set dual-write context so logAudit() also writes to Supabase
+  useEffect(() => {
+    if (supabaseConfigured && supabaseOrgId && supabaseUser?.email) {
+      setAuditDualWriteContext(supabaseOrgId, supabaseUser.email);
+    } else {
+      setAuditDualWriteContext(null, null);
+    }
+  }, [supabaseConfigured, supabaseOrgId, supabaseUser?.email]);
 
   // Log Supabase sign-in when user first appears
   useEffect(() => {

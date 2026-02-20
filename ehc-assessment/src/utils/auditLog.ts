@@ -1,6 +1,22 @@
 import { openDB, AUDIT_LOG_STORE } from './db';
 import { csvEscape } from './exportData';
 import { computeHmac, verifyHmac } from './crypto';
+import { logAuditRemote } from './supabaseAuditLog';
+
+// --- Dual-write context (set by App.tsx when Supabase user is available) ---
+
+let _supabaseOrgId: string | null = null;
+let _supabaseUserEmail: string | null = null;
+
+/**
+ * Configure dual-write context for Supabase audit logs.
+ * Call this from App.tsx whenever the Supabase user/org changes.
+ * When set, every `logAudit()` call automatically dual-writes to Supabase.
+ */
+export function setAuditDualWriteContext(orgId: string | null, userEmail: string | null): void {
+  _supabaseOrgId = orgId;
+  _supabaseUserEmail = userEmail;
+}
 
 // --- Types ---
 
@@ -109,6 +125,22 @@ export function logAudit(
         tx.objectStore(AUDIT_LOG_STORE).add(entry);
       } catch {
         // Silently fail — audit logging must never break the app
+      }
+
+      // Dual-write to Supabase (fire-and-forget)
+      if (_supabaseOrgId && _supabaseUserEmail) {
+        try {
+          logAuditRemote(
+            _supabaseOrgId,
+            entry.user !== 'system' ? entry.user : _supabaseUserEmail,
+            action,
+            entry.resource,
+            entry.details,
+            entry.status,
+          );
+        } catch {
+          // Silently fail — dual-write must never break the app
+        }
       }
     })();
   } catch {

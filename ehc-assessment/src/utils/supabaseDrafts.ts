@@ -114,11 +114,15 @@ export async function fetchRemoteDraft(id: string): Promise<DraftRow | null> {
  * Uses optimistic concurrency: if a `remoteVersion` is provided on the
  * DraftRecord, the update only succeeds when the remote version matches.
  * Returns the updated row (with new version) or null on conflict/error.
+ *
+ * Pass `forceOverwrite: true` to skip the version guard (used by conflict
+ * resolution "Keep Mine" flow).
  */
 export async function upsertRemoteDraft(
   draft: DraftRecord,
   orgId: string,
   userId: string,
+  options?: { forceOverwrite?: boolean },
 ): Promise<DraftRow | null> {
   if (!isSupabaseConfigured()) return null;
   const sb = getSupabaseClient();
@@ -137,7 +141,8 @@ export async function upsertRemoteDraft(
       .eq('id', draft.id);
 
     // Version guard: only update if remote version matches what we last saw
-    if (draft.remoteVersion !== undefined) {
+    // Skip when force-overwriting (conflict resolution "Keep Mine")
+    if (draft.remoteVersion !== undefined && !options?.forceOverwrite) {
       query = query.eq('version', draft.remoteVersion);
     }
 

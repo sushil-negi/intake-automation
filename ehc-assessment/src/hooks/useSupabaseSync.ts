@@ -13,12 +13,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isSupabaseConfigured } from '../utils/supabaseClient';
-import { upsertRemoteDraft, deleteRemoteDraft } from '../utils/supabaseDrafts';
+import { upsertRemoteDraft, deleteRemoteDraft, fetchRemoteDraft, rowToDraftRecord } from '../utils/supabaseDrafts';
 import {
   getSupabaseSyncQueue,
   removeFromSupabaseSyncQueue,
   addToSupabaseSyncQueue,
   getDraft,
+  saveDraft,
 } from '../utils/db';
 import type { DraftRecord, DraftType } from '../utils/db';
 import type { DraftRow } from '../types/supabase';
@@ -37,6 +38,17 @@ export interface UseSupabaseSyncOptions {
   online?: boolean;
 }
 
+export interface ConflictInfo {
+  /** The draft ID that conflicted. */
+  draftId: string;
+  /** Client name for display. */
+  clientName?: string;
+  /** When the remote version was last updated. */
+  remoteUpdatedAt?: string;
+  /** The local draft data at time of conflict. */
+  localDraft: DraftRecord;
+}
+
 export interface UseSupabaseSyncReturn {
   /** Current sync status. */
   status: SyncStatus;
@@ -44,6 +56,8 @@ export interface UseSupabaseSyncReturn {
   lastSynced: Date | null;
   /** Error message from last failed sync attempt. */
   lastError: string | null;
+  /** Active conflict info — non-null when status === 'conflict'. */
+  conflictInfo: ConflictInfo | null;
   /**
    * Schedule a draft for background sync to Supabase.
    * Debounced — only the last call within 3s actually fires.
@@ -62,6 +76,18 @@ export interface UseSupabaseSyncReturn {
    * Drain the offline queue — called when coming back online.
    */
   drainOfflineQueue: () => Promise<void>;
+  /**
+   * Resolve a version conflict.
+   * - 'keepMine': force-push local data to Supabase, overwriting remote.
+   * - 'useTheirs': discard local, reload from remote.
+   * Returns the resolved DraftRecord on success, null on failure.
+   */
+  resolveConflict: (strategy: 'keepMine' | 'useTheirs') => Promise<DraftRecord | null>;
+  /**
+   * Dismiss the conflict without resolving — user chose "Cancel".
+   * Clears conflictInfo so the UI can continue editing.
+   */
+  dismissConflict: () => void;
 }
 
 export function useSupabaseSync({
@@ -72,6 +98,7 @@ export function useSupabaseSync({
   const [status, setStatus] = useState<SyncStatus>(online ? 'idle' : 'offline');
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingDraftRef = useRef<DraftRecord | null>(null);
@@ -104,11 +131,24 @@ export function useSupabaseSync({
       if (result) {
         setStatus('synced');
         setLastSynced(new Date());
+        setConflictInfo(null);
         return result;
       } else {
-        // Could be a version conflict or other issue
+        // Version conflict — fetch remote to show conflict info
+        let remoteUpdatedAt: string | undefined;
+        try {
+          const remoteRow = await fetchRemoteDraft(draft.id);
+          remoteUpdatedAt = remoteRow?.updated_at;
+        } catch { /* ignore — we still show the conflict UI */ }
+
         setStatus('conflict');
         setLastError('Sync conflict — remote version changed');
+        setConflictInfo({
+          draftId: draft.id,
+          clientName: draft.clientName,
+          remoteUpdatedAt,
+          localDraft: draft,
+        });
         return null;
       }
     } catch (err) {
@@ -272,6 +312,64 @@ export function useSupabaseSync({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [configured, flushSync]);
 
+  // ── Conflict resolution ─────────────────────────────────────────────────
+
+  const resolveConflict = useCallback(async (strategy: 'keepMine' | 'useTheirs'): Promise<DraftRecord | null> => {
+    if (!conflictInfo || !userId || !orgId) return null;
+
+    setStatus('syncing');
+    setLastError(null);
+
+    try {
+      if (strategy === 'keepMine') {
+        // Force-push local data, skip version guard
+        const result = await upsertRemoteDraft(conflictInfo.localDraft, orgId, userId, { forceOverwrite: true });
+        if (result) {
+          // Update local draft with new remote version
+          const resolved: DraftRecord = {
+            ...conflictInfo.localDraft,
+            remoteVersion: result.version,
+          };
+          await saveDraft(resolved);
+          setConflictInfo(null);
+          setStatus('synced');
+          setLastSynced(new Date());
+          return resolved;
+        }
+        setStatus('error');
+        setLastError('Failed to overwrite remote — try again');
+        return null;
+      } else {
+        // Use remote data — fetch latest from Supabase
+        const remoteRow = await fetchRemoteDraft(conflictInfo.draftId);
+        if (!remoteRow) {
+          setStatus('error');
+          setLastError('Remote draft not found — it may have been deleted');
+          setConflictInfo(null);
+          return null;
+        }
+        const resolved = rowToDraftRecord(remoteRow);
+        await saveDraft(resolved);
+        setConflictInfo(null);
+        setStatus('synced');
+        setLastSynced(new Date());
+        return resolved;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Conflict resolution failed';
+      logger.error('[SupabaseSync] resolveConflict error:', msg);
+      setStatus('error');
+      setLastError(msg);
+      return null;
+    }
+  }, [conflictInfo, userId, orgId]);
+
+  const dismissConflict = useCallback(() => {
+    setConflictInfo(null);
+    setStatus('idle');
+    setLastError(null);
+  }, []);
+
   // ── Cleanup on unmount ────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -286,9 +384,12 @@ export function useSupabaseSync({
     status,
     lastSynced,
     lastError,
+    conflictInfo,
     scheduleDraftSync,
     scheduleDraftDelete,
     flushSync,
     drainOfflineQueue,
+    resolveConflict,
+    dismissConflict,
   };
 }

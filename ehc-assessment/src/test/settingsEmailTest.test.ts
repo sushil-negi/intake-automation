@@ -44,6 +44,12 @@ vi.mock('../utils/db', () => ({
     htmlEnabled: true,
   }),
   saveEmailConfig: (...args: unknown[]) => mockSaveEmailConfig(...args),
+  getSupabaseSyncQueue: vi.fn().mockResolvedValue([]),
+}));
+
+// supabaseClient.ts — Settings now checks isSupabaseConfigured
+vi.mock('../utils/supabaseClient', () => ({
+  isSupabaseConfigured: vi.fn(() => false),
 }));
 
 // remoteConfig (dynamically imported inside SettingsScreen)

@@ -17,7 +17,10 @@ import { LoadingSpinner } from './ui/LoadingSpinner';
 import { saveDraft, type DraftRecord } from '../utils/db';
 import { logAudit } from '../utils/auditLog';
 import { useDraftLock } from '../hooks/useDraftLock';
+import { useSupabaseSync } from '../hooks/useSupabaseSync';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { isSupabaseConfigured } from '../utils/supabaseClient';
+import { ConflictResolutionModal } from './ui/ConflictResolutionModal';
 import type { ServiceContractFormData } from '../types/serviceContract';
 
 const STEPS = [
@@ -52,7 +55,7 @@ interface ServiceContractWizardProps {
   supabaseOrgId?: string | null;
 }
 
-export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draftId, linkedAssessmentId, authUserName, supabaseUserId }: ServiceContractWizardProps) {
+export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draftId, linkedAssessmentId, authUserName, supabaseUserId, supabaseOrgId }: ServiceContractWizardProps) {
   // v4-10: Move localStorage side effect out of render body into useState initializer
   // useState initializer only runs once on mount, safe for React concurrent mode
   useState(() => {
@@ -75,6 +78,21 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
     draftId: currentDraftId,
     userId: supabaseUserId ?? null,
     enabled: isSupabaseConfigured() && !!currentDraftId && !!supabaseUserId,
+  });
+
+  // Remote sync — background push to Supabase with conflict detection
+  const isOnline = useOnlineStatus();
+  const {
+    status: syncStatus,
+    conflictInfo,
+    resolveConflict,
+    dismissConflict,
+    scheduleDraftSync,
+    flushSync,
+  } = useSupabaseSync({
+    userId: supabaseUserId ?? null,
+    orgId: supabaseOrgId ?? null,
+    online: isOnline,
   });
 
   const validateCurrentStep = useCallback(() => {
@@ -220,9 +238,11 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
     await saveDraft(draft);
     if (!isUpdate) setCurrentDraftId(id);
     logAudit(isUpdate ? 'draft_update' : 'draft_create', id, draft.clientName);
+    // Schedule background sync to Supabase
+    scheduleDraftSync(draft);
     setDraftSaveMessage('Draft saved!');
     setTimeout(() => setDraftSaveMessage(''), 2000);
-  }, [data, wizard.currentStep, currentDraftId]);
+  }, [data, wizard.currentStep, currentDraftId, scheduleDraftSync]);
 
   const renderStep = () => {
     const formError = errors._form ? (
@@ -335,7 +355,7 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
       onShowDrafts={() => setShowDrafts(prev => !prev)}
       onSaveDraft={handleSaveDraft}
       title="Service Contract"
-      onGoHome={async () => { await releaseLock(); onGoHome(); }}
+      onGoHome={async () => { await flushSync(); await releaseLock(); onGoHome(); }}
       hasUnsavedChanges={isDirty}
       onDiscard={clearDraft}
     >
@@ -390,6 +410,33 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
           )}
           {renderStep()}
         </>
+      )}
+
+      {/* Conflict resolution modal — shown when background sync detects version mismatch */}
+      {conflictInfo && (
+        <ConflictResolutionModal
+          clientName={conflictInfo.clientName}
+          remoteUpdatedAt={conflictInfo.remoteUpdatedAt}
+          onKeepMine={async () => {
+            const resolved = await resolveConflict('keepMine');
+            if (resolved) {
+              setDraftSaveMessage('Conflict resolved — your version kept');
+              setTimeout(() => setDraftSaveMessage(''), 3000);
+            }
+          }}
+          onUseTheirs={async () => {
+            const resolved = await resolveConflict('useTheirs');
+            if (resolved) {
+              updateData(() => resolved.data as ServiceContractFormData);
+              if (resolved.currentStep !== undefined) {
+                wizard.goToStep(resolved.currentStep);
+              }
+              setDraftSaveMessage('Conflict resolved — remote version loaded');
+              setTimeout(() => setDraftSaveMessage(''), 3000);
+            }
+          }}
+          onCancel={dismissConflict}
+        />
       )}
     </WizardShell>
   );

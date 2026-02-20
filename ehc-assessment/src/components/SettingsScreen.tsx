@@ -18,6 +18,8 @@ import type { ServiceContractFormData } from '../types/serviceContract';
 import type { AuthConfig } from '../types/auth';
 import { DEFAULT_AUTH_CONFIG } from '../types/auth';
 import type { ConfigSource } from '../types/remoteConfig';
+import { isSupabaseConfigured } from '../utils/supabaseClient';
+import { getSupabaseSyncQueue } from '../utils/db';
 import { sendPdfEmail, isValidEmail } from '../utils/emailApi';
 import type { EmailConfig } from '../types/emailConfig';
 import { DEFAULT_EMAIL_CONFIG } from '../types/emailConfig';
@@ -102,6 +104,10 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource }: Settin
   const [emailConfigSaving, setEmailConfigSaving] = useState(false);
   const [emailConfigStatus, setEmailConfigStatus] = useState<'idle' | 'saved' | 'error'>('idle');
 
+  // Supabase sync status state
+  const supabaseEnabled = isSupabaseConfigured();
+  const [syncQueueCount, setSyncQueueCount] = useState(0);
+
   const refreshDraftCount = useCallback(async () => {
     try {
       const drafts = await getAllDrafts();
@@ -126,6 +132,10 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource }: Settin
     })();
     // Load email template config
     getEmailConfig().then(setEmailTemplateConfig).catch(() => {/* use defaults */});
+    // Load Supabase sync queue count
+    if (isSupabaseConfigured()) {
+      getSupabaseSyncQueue().then(q => setSyncQueueCount(q.length)).catch(() => {});
+    }
     refreshDraftCount();
   }, [refreshDraftCount]);
 
@@ -1715,6 +1725,75 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource }: Settin
 
           </>)}
           {/* End admin-only sections */}
+
+          {/* Supabase Cloud Sync section — visible to all users when Supabase is configured */}
+          {supabaseEnabled && (
+            <AccordionSection title="Cloud Sync (Supabase)">
+              <div className="space-y-4">
+                <p className="text-xs text-gray-500 dark:text-slate-400">
+                  Multi-device sync powered by Supabase. Drafts sync automatically across all devices in your organisation.
+                </p>
+
+                {/* Connection status */}
+                <div className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-slate-300">Connection</span>
+                    <span className="flex items-center gap-1.5 text-xs">
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-green-700 dark:text-green-400 font-medium">Connected</span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-slate-300">Offline Queue</span>
+                    <span className={`text-xs font-medium ${syncQueueCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-slate-400'}`}>
+                      {syncQueueCount === 0 ? 'Empty (all synced)' : `${syncQueueCount} item${syncQueueCount > 1 ? 's' : ''} pending`}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-slate-300">Sync Mode</span>
+                    <span className="text-xs text-gray-500 dark:text-slate-400">
+                      {isOnline ? 'Real-time (auto-sync)' : 'Offline (queued)'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Features summary */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-2">Enabled Features</p>
+                  <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-green-600">✓</span> Real-time draft sync across devices
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-green-600">✓</span> Optimistic concurrency (version-based conflict detection)
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-green-600">✓</span> Draft locking (prevents concurrent edits)
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-green-600">✓</span> Centralised audit trail
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <span className="text-green-600">✓</span> Offline queue with auto-drain on reconnect
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Refresh queue count */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    getSupabaseSyncQueue().then(q => setSyncQueueCount(q.length)).catch(() => {});
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all min-h-[36px]"
+                >
+                  Refresh Status
+                </button>
+              </div>
+            </AccordionSection>
+          )}
 
           {/* Section 6: Activity Log — visible to all users */}
           <AccordionSection title="Activity Log">
