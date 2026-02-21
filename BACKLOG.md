@@ -465,6 +465,10 @@ All remaining EPIC 19 (HIPAA) and EPIC 20 (UI/UX) stories completed:
 - Email customization: configurable subject/body templates per type, {clientName}/{date}/{staffName} placeholders, default CC, email signature, HTML formatting toggle, Settings UI. DB v5→v6 (emailConfig store). escapeHtml() XSS prevention. Server-side subject/body size limits. Client-side maxLength validation.
 - Draft duplicate fix: clearDraft() debounce cancellation, Dashboard auto-rescue dedup guard, setCurrentDraftId(null) on new assessment/contract
 
+### Sprint 24 — Supabase Data Encryption (IN PROGRESS)
+- 24.1 Client-side encryption of form_data before Supabase sync — Done (orgKeyManager.ts, org-key.mts Netlify Function, PBKDF2 key derivation, AES-256-GCM, ORGENC: prefix, 17 tests)
+- Tests: 843/843 unit (54 files) + 142/142 E2E
+
 ### Future — Backend + Roles + Advanced
 - 7.1 User roles & permissions (admin/nurse/family) → subsumed by EPIC-23.6 (RBAC)
 - 8.1 REST API + database → partially implemented via EPIC-23.1 (Supabase Postgres). Full REST API layer (23.11) still pending.
@@ -555,8 +559,20 @@ All remaining EPIC 19 (HIPAA) and EPIC 20 (UI/UX) stories completed:
 - **Submit Flow:** Real submit handler saves draft with `status: 'submitted'`, syncs to Supabase, releases lock, navigates home. Re-submit protection prevents duplicate submissions.
 - **Draft ID Migration:** `draftIdMigration.ts` — one-time migration of `draft-xxx` IDs to UUIDs for Supabase compatibility.
 - **Config Function:** `netlify/functions/config.mts` — serves remote config with environment-specific overrides.
-- **Tests:** 826 unit tests across 53 files + 142 E2E tests across 10 browser/device projects.
+- **Tests:** 843 unit tests across 54 files + 142 E2E tests across 10 browser/device projects.
 - **Prod:** Schema deployed to prod Supabase (`dpeygehqahfskcxpwzru.supabase.co`), org `ehc-chester` created. Bootstrap SQL ready for super_admin profile creation.
+
+---
+
+### EPIC-24: Supabase Data Encryption & PHI Protection
+**Goal:** Encrypt sensitive form data (including signatures) before writing to Supabase, providing defense-in-depth beyond RLS and Postgres at-rest encryption. Currently, `form_data` JSONB is stored as plaintext — readable by anyone with database admin access.
+
+| ID | Story | Acceptance Criteria | Priority | Status |
+|----|-------|-------------------|----------|--------|
+| 24.1 | Client-side encryption of form_data before Supabase sync | - `orgKeyManager.ts`: Per-org AES-256-GCM encryption with `ORGENC:` prefix. Non-extractable CryptoKey in memory. Graceful fallback to plaintext when key unavailable. Lazy migration (plaintext passthrough on decrypt). - `org-key.mts` Netlify Function: PBKDF2 key derivation from master key (`EHC_ENCRYPTION_MASTER_KEY` env var) with org-specific salt. JWT auth, rate limiting (10/min/IP). - `supabaseDrafts.ts`: `encryptOrgData()` before upsert, `decryptOrgData()` after fetch. - 17 unit tests. - Bug fixed: missing `export const config = { path: '/api/org-key' }` path mapping. | P1 | Done |
+| 24.2 | Signature-specific storage optimization | - Extract signature base64 strings from form_data before Supabase sync. - Store signatures in Supabase Storage (blob) with signed URLs. - Replace inline base64 with storage references in form_data. - Reduces JSONB column size by ~50-100 KB per document. - Signatures served via time-limited signed URLs (not permanent public links). | P2 | Backlog |
+| 24.3 | Server-side encryption at rest validation | - Verify Supabase project has encryption at rest enabled (default on managed instances). - Document encryption posture in HIPAA compliance checklist. - Add Supabase encryption status check to Settings → HIPAA Compliance section. | P2 | Backlog |
+| 24.4 | Audit log encryption | - Encrypt `details` field in `audit_logs` table (may contain PHI like client names). - Same pattern as 24.1: encrypt before dual-write, decrypt on read. | P2 | Backlog |
 
 ---
 

@@ -3,7 +3,7 @@
 **Date:** 2026-02-12
 **Auditor:** Claude (Session 25 — 4 parallel deep-dive agents)
 **App Version:** Post-Sprint 20 (238 unit tests, 16 E2E tests, TypeScript clean)
-**Overall Verdict: READY** — v2: All 27 findings resolved. v3: All 13 findings resolved. v4: All 11 findings resolved. v5: 2 warnings resolved. v6: Automated WCAG testing added. v7: Final 4-agent deep audit confirms 0 BLOCKERS, 6 SHOULD-FIX. v8: Email hardening + draft duplicate fix. v9: Supabase multi-device sync. **v10: Multi-tenant branding, tenant config, E2E infrastructure fixes. 826 unit + 142 E2E tests. 0 BLOCKERS.**
+**Overall Verdict: READY** — v2: All 27 findings resolved. v3: All 13 findings resolved. v4: All 11 findings resolved. v5: 2 warnings resolved. v6: Automated WCAG testing added. v7: Final 4-agent deep audit confirms 0 BLOCKERS, 6 SHOULD-FIX. v8: Email hardening + draft duplicate fix. v9: Supabase multi-device sync. v10: Multi-tenant branding, tenant config, E2E infrastructure fixes. **v11: EPIC-24.1 org-level form_data encryption. 843 unit + 142 E2E tests. 0 BLOCKERS.**
 
 ---
 
@@ -784,3 +784,71 @@ npm audit:   34 vulnerabilities (all dev/transitive — 0 direct production)
 7. **NEW:** npm audit shows 34 dev/transitive vulnerabilities — none in production bundle. Monitor for upstream fixes.
 
 *v10 generated 2026-02-20 — Sessions 42-45: Multi-tenant branding, tenant config, submit flow, draft ID migration, E2E infrastructure fixes, full cross-browser validation*
+
+---
+
+## Go-Live Audit v11 (Session 46)
+
+**Date:** 2026-02-21
+**Scope:** EPIC-24.1 — Org-level encryption of form_data before Supabase sync
+**Status:** **0 BLOCKERS. APP REMAINS GO-LIVE READY.**
+
+### What Was Added Since v10
+
+| Feature | Files | Description |
+|---------|-------|-------------|
+| **Org Key Derivation** | `netlify/functions/org-key.mts` | PBKDF2 key derivation from `EHC_ENCRYPTION_MASTER_KEY` env var. Per-org salt (`ehc-org-key-{orgId}`), 100K iterations, SHA-256. JWT auth, rate limiting (10/min/IP). Returns base64 key bytes. |
+| **Org Key Manager** | `utils/orgKeyManager.ts` | Client-side module. `fetchOrgKey()` imports as non-extractable CryptoKey. `encryptOrgData()` → `ORGENC:` + base64(iv+ciphertext). `decryptOrgData()` handles 3 cases: ORGENC: decrypt, plain object passthrough, plain JSON parse. Loop-based encoding (no stack overflow). |
+| **Supabase Drafts Integration** | `supabaseDrafts.ts`, `useSupabaseSync.ts`, `useSupabaseDrafts.ts` | `encryptOrgData()` before upsert, `decryptOrgData()` after fetch. Seamless encryption/decryption in sync pipeline. |
+| **App Integration** | `App.tsx` | `fetchOrgKey()` on Supabase auth success, `clearOrgKey()` on sign-out. |
+| **TypeScript Config** | `tsconfig.functions.json` | Separate TS config for Netlify Functions. |
+
+### Security Assessment
+
+| Aspect | Status | Details |
+|--------|--------|---------|
+| **Key derivation** | SECURE | PBKDF2 with 100K iterations + SHA-256. Master key never leaves server. Per-org unique salt. |
+| **Key storage (server)** | SECURE | `EHC_ENCRYPTION_MASTER_KEY` in Netlify env vars only. Never in client bundle. |
+| **Key storage (client)** | SECURE | Non-extractable CryptoKey — cannot be read via JavaScript. Cleared on page refresh or logout. |
+| **Encryption** | SECURE | AES-256-GCM with random 12-byte IV per encryption. Same data produces different ciphertext (IVs unique). |
+| **Graceful fallback** | SAFE | If key unavailable (offline, server not configured), falls back to plaintext JSONB — same as pre-EPIC-24.1. No data loss. |
+| **Migration path** | SAFE | Existing plaintext data loads via passthrough. Re-saved data encrypted on next "Save Draft" click. Lazy migration. |
+| **Auth gate** | SECURE | JWT required for key fetch. Service_role client verifies token + looks up org_id from profiles table. |
+
+### Bug Fixed During Testing
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| `/api/org-key` returning 404 | Missing `export const config = { path: '/api/org-key' }` in org-key.mts | Added path mapping (required by all Netlify Functions) |
+
+### Testing Observation
+
+Supabase sync only fires on explicit "Save Draft" click (via `scheduleDraftSync()`), not on auto-save keystrokes. Auto-save (500ms debounce) writes to IndexedDB only. This is by design — confirmed no code fix needed.
+
+### Test Coverage
+
+| Test File | Tests | What's Covered |
+|-----------|-------|----------------|
+| `orgKeyManager.test.ts` | 17 | isOrgEncrypted, hasOrgKey/clearOrgKey, encrypt/decrypt round-trip (simple, nested, large payload, empty), unique IVs, graceful degradation (no key), migration path (plain object, JSON string, invalid string) |
+| **Total** | **843** | (was 826 across 53 files → now 843 across 54 files) |
+
+### v11 Verification
+
+```
+TypeScript:  npx tsc --noEmit           → CLEAN (0 errors)
+Unit Tests:  npx vitest run             → 843/843 PASS (54 files)
+E2E Tests:   npx playwright test        → 142/142 PASS (10 projects, 5 spec files)
+```
+
+### Known Limitations (Updated)
+
+1. No BAA with Google for Sheets sync — mitigated by PHI masking via `sanitizeForSync()`
+2. Session token in plaintext sessionStorage — mitigated by CSP + 8hr expiry + tab-scoped
+3. No external error monitoring (Sentry/Datadog) — mitigated by audit log + global error handlers
+4. `style-src 'unsafe-inline'` in CSP — required by Tailwind v4 runtime
+5. Supabase free tier has no HIPAA BAA — same approach as Google Sheets. Team plan ($599/mo) available for formal compliance.
+6. Main bundle 655KB exceeds 500KB advisory — mitigated by existing code splitting
+7. npm audit shows 34 dev/transitive vulnerabilities — none in production bundle
+8. **NEW:** Org encryption requires `EHC_ENCRYPTION_MASTER_KEY` env var on server. Without it, form_data stored as plaintext JSONB (graceful fallback). Key must be generated and securely stored in Netlify env vars for production use.
+
+*v11 generated 2026-02-21 — Session 46: EPIC-24.1 org-level form_data encryption*

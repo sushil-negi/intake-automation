@@ -41,6 +41,14 @@ vi.mock('../utils/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn(), log: vi.fn() },
 }));
 
+// Mock orgKeyManager — no encryption in these tests (passthrough)
+vi.mock('../utils/orgKeyManager', () => ({
+  encryptOrgData: vi.fn((data: Record<string, unknown>) => Promise.resolve(data)),
+  decryptOrgData: vi.fn((payload: Record<string, unknown> | string) =>
+    Promise.resolve(typeof payload === 'string' ? JSON.parse(payload) : payload),
+  ),
+}));
+
 import {
   rowToDraftRecord,
   draftRecordToInsert,
@@ -98,9 +106,9 @@ beforeEach(() => {
 // ── Conversion helpers ───────────────────────────────────────────────────────
 
 describe('rowToDraftRecord', () => {
-  it('converts DraftRow to DraftRecord shape', () => {
+  it('converts DraftRow to DraftRecord shape', async () => {
     const row = makeDraftRow();
-    const record = rowToDraftRecord(row);
+    const record = await rowToDraftRecord(row);
     expect(record.id).toBe('draft-123');
     expect(record.clientName).toBe('Jane Doe');
     expect(record.type).toBe('assessment');
@@ -111,23 +119,23 @@ describe('rowToDraftRecord', () => {
     expect(record.data).toEqual({ clientHelpList: { clientName: 'Jane Doe' } });
   });
 
-  it('maps linked_assessment_id to linkedAssessmentId', () => {
+  it('maps linked_assessment_id to linkedAssessmentId', async () => {
     const row = makeDraftRow({ linked_assessment_id: 'assess-456' });
-    const record = rowToDraftRecord(row);
+    const record = await rowToDraftRecord(row);
     expect(record.linkedAssessmentId).toBe('assess-456');
   });
 
-  it('maps null linked_assessment_id to undefined', () => {
+  it('maps null linked_assessment_id to undefined', async () => {
     const row = makeDraftRow({ linked_assessment_id: null });
-    const record = rowToDraftRecord(row);
+    const record = await rowToDraftRecord(row);
     expect(record.linkedAssessmentId).toBeUndefined();
   });
 });
 
 describe('draftRecordToInsert', () => {
-  it('creates correct insert payload', () => {
+  it('creates correct insert payload', async () => {
     const record = makeDraftRecord();
-    const insert = draftRecordToInsert(record, 'org-1', 'user-1');
+    const insert = await draftRecordToInsert(record, 'org-1', 'user-1');
     expect(insert.id).toBe('draft-123');
     expect(insert.org_id).toBe('org-1');
     expect(insert.client_name).toBe('Jane Doe');
@@ -141,9 +149,9 @@ describe('draftRecordToInsert', () => {
 });
 
 describe('draftRecordToUpdate', () => {
-  it('creates correct update payload without org_id or created_by', () => {
+  it('creates correct update payload without org_id or created_by', async () => {
     const record = makeDraftRecord();
-    const update = draftRecordToUpdate(record, 'user-1');
+    const update = await draftRecordToUpdate(record, 'user-1');
     expect(update.client_name).toBe('Jane Doe');
     expect(update.updated_by).toBe('user-1');
     expect(update.form_data).toBeDefined();

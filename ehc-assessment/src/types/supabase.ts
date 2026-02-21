@@ -43,7 +43,7 @@ export type DraftRow = {
   status: 'draft' | 'submitted';
   current_step: number;
   linked_assessment_id: string | null;
-  form_data: Record<string, unknown>;   // JSONB — typed loosely, cast at usage
+  form_data: Record<string, unknown> | string;   // JSONB or ORGENC:... encrypted string
   version: number;
   locked_by: string | null;
   locked_at: string | null;
@@ -86,7 +86,7 @@ export type DraftInsert = {
   status?: 'draft' | 'submitted';
   current_step?: number;
   linked_assessment_id?: string | null;
-  form_data: Record<string, unknown>;
+  form_data: Record<string, unknown> | string;
   created_by: string;
   updated_by?: string | null;
 };
@@ -96,7 +96,7 @@ export type DraftUpdate = {
   status?: 'draft' | 'submitted';
   current_step?: number;
   linked_assessment_id?: string | null;
-  form_data?: Record<string, unknown>;
+  form_data?: Record<string, unknown> | string;
   updated_by?: string | null;
 };
 

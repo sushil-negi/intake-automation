@@ -94,7 +94,7 @@ export function useSupabaseDrafts({
 
     try {
       const rows = await fetchRemoteDrafts();
-      const remoteDrafts = rows.map(rowToDraftRecord);
+      const remoteDrafts = await Promise.all(rows.map(rowToDraftRecord));
       const merged = await mergeDrafts(remoteDrafts);
       setDrafts(merged);
     } catch (err) {
@@ -134,17 +134,21 @@ export function useSupabaseDrafts({
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            const newDraft = rowToDraftRecord(payload.new);
-            setDrafts(prev => {
-              // Don't add duplicates
-              if (prev.some(d => d.id === newDraft.id)) return prev;
-              return [newDraft, ...prev];
-            });
+            (async () => {
+              const newDraft = await rowToDraftRecord(payload.new);
+              setDrafts(prev => {
+                // Don't add duplicates
+                if (prev.some(d => d.id === newDraft.id)) return prev;
+                return [newDraft, ...prev];
+              });
+            })();
           } else if (payload.eventType === 'UPDATE') {
-            const updated = rowToDraftRecord(payload.new);
-            setDrafts(prev =>
-              prev.map(d => (d.id === updated.id ? updated : d)),
-            );
+            (async () => {
+              const updated = await rowToDraftRecord(payload.new);
+              setDrafts(prev =>
+                prev.map(d => (d.id === updated.id ? updated : d)),
+              );
+            })();
           } else if (payload.eventType === 'DELETE') {
             const deletedId = payload.old?.id;
             if (deletedId) {

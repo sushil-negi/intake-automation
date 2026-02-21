@@ -225,7 +225,7 @@ describe('useSupabaseSync', () => {
       currentStep: 0,
       remoteVersion: 5,
     };
-    mockRowToDraftRecord.mockReturnValue(remoteDraftRecord);
+    mockRowToDraftRecord.mockResolvedValue(remoteDraftRecord);
 
     const draft = makeDraft();
     const { result } = renderHook(() =>

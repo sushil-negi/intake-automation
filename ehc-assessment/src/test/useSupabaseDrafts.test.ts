@@ -15,7 +15,7 @@ const mockFetchRemoteDrafts = vi.fn<() => Promise<DraftRow[]>>();
 
 vi.mock('../utils/supabaseDrafts', () => ({
   fetchRemoteDrafts: () => mockFetchRemoteDrafts(),
-  rowToDraftRecord: vi.fn((row: DraftRow) => ({
+  rowToDraftRecord: vi.fn((row: DraftRow) => Promise.resolve({
     id: row.id,
     clientName: row.client_name,
     type: row.type,
@@ -243,7 +243,7 @@ describe('useSupabaseDrafts', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    // Simulate INSERT
+    // Simulate INSERT (handler is async IIFE, so state update is deferred)
     const changeHandler = channelCallbacks['change'];
     expect(changeHandler).toBeDefined();
 
@@ -255,7 +255,7 @@ describe('useSupabaseDrafts', () => {
       });
     });
 
-    expect(result.current.drafts).toHaveLength(1);
+    await waitFor(() => expect(result.current.drafts).toHaveLength(1));
     expect(result.current.drafts[0].id).toBe('insert-1');
   });
 
@@ -269,7 +269,7 @@ describe('useSupabaseDrafts', () => {
 
     await waitFor(() => expect(result.current.drafts).toHaveLength(1));
 
-    // Simulate INSERT with same ID
+    // Simulate INSERT with same ID (handler is async IIFE)
     const changeHandler = channelCallbacks['change'];
     act(() => {
       changeHandler({
@@ -279,8 +279,8 @@ describe('useSupabaseDrafts', () => {
       });
     });
 
-    // Should still be 1
-    expect(result.current.drafts).toHaveLength(1);
+    // Wait for async handler, should still be 1
+    await waitFor(() => expect(result.current.drafts).toHaveLength(1));
   });
 
   // ── Realtime UPDATE event ───────────────────────────────────────────────
@@ -297,7 +297,7 @@ describe('useSupabaseDrafts', () => {
     await waitFor(() => expect(result.current.drafts).toHaveLength(1));
     expect(result.current.drafts[0].clientName).toBe('Original');
 
-    // Simulate UPDATE
+    // Simulate UPDATE (handler is async IIFE)
     const changeHandler = channelCallbacks['change'];
     act(() => {
       changeHandler({
@@ -307,7 +307,7 @@ describe('useSupabaseDrafts', () => {
       });
     });
 
-    expect(result.current.drafts[0].clientName).toBe('Updated');
+    await waitFor(() => expect(result.current.drafts[0].clientName).toBe('Updated'));
   });
 
   // ── Realtime DELETE event ───────────────────────────────────────────────

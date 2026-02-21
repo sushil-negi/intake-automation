@@ -348,7 +348,7 @@ export function useSupabaseSync({
           setConflictInfo(null);
           return null;
         }
-        const resolved = rowToDraftRecord(remoteRow);
+        const resolved = await rowToDraftRecord(remoteRow);
         await saveDraft(resolved);
         setConflictInfo(null);
         setStatus('synced');

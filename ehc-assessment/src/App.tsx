@@ -13,6 +13,7 @@ import { saveDraft, getSheetsConfig, saveSheetsConfig, purgeOldDrafts } from './
 import { purgeOldLogs, setAuditDualWriteContext } from './utils/auditLog';
 import { googleSignOut } from './utils/googleAuth';
 import { migrateNonUuidDraftIds } from './utils/draftIdMigration';
+import { fetchOrgKey, clearOrgKey } from './utils/orgKeyManager';
 import { writeEncryptedLocalStorage } from './utils/crypto';
 import { useIdleTimeout } from './hooks/useIdleTimeout';
 import { useDarkMode } from './hooks/useDarkMode';
@@ -124,6 +125,15 @@ function App() {
     }
   }, [supabaseConfigured, supabaseOrgId, supabaseUser?.email]);
 
+  // Fetch org encryption key when Supabase org is available
+  useEffect(() => {
+    if (supabaseConfigured && supabaseOrgId) {
+      fetchOrgKey(supabaseOrgId).catch(err =>
+        logger.error('Failed to fetch org encryption key:', err)
+      );
+    }
+  }, [supabaseConfigured, supabaseOrgId]);
+
   // Log Supabase sign-in when user first appears
   useEffect(() => {
     if (supabaseConfigured && supabaseUser) {
@@ -143,6 +153,9 @@ function App() {
 
   const handleSignOut = useCallback(async () => {
     logAudit('logout', undefined, undefined, 'success', authUser?.email);
+
+    // Clear org encryption key from memory
+    clearOrgKey();
 
     if (supabaseConfigured) {
       await supabaseSignOut();

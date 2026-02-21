@@ -32,7 +32,7 @@
 - **Offline Storage:** localStorage (auto-save), IndexedDB (drafts + sync queue)
 - **Build Tool:** Vite
 - **Package Manager:** npm
-- **Testing:** Vitest + jsdom (826 unit tests, 53 files) + Playwright + axe-core (142 E2E tests across 10 browser/device projects)
+- **Testing:** Vitest + jsdom (843 unit tests, 54 files) + Playwright + axe-core (142 E2E tests across 10 browser/device projects)
 
 ---
 
@@ -50,10 +50,10 @@
 **Accessibility:** WCAG AA contrast, required indicators, heading hierarchy, error icons, aria-live, focus traps, automated axe-core WCAG testing in CI — COMPLETE
 **Go-Live Audit:** v2-v9 (all resolved) + **v10** (multi-tenant branding, tenant config, E2E infrastructure fixes, 826 unit + 142 E2E tests, 0 blockers) — READY
 **Documentation:** README.md, CONTRIBUTING.md, docs/SECURITY.md, docs/HIPAA.md, docs/DEPLOYMENT.md, docs/GOOGLE-SHEETS-SETUP.md
-**Tests:** 826/826 unit (53 files) + 142/142 E2E (Playwright: 10 browser/device projects × 5 spec files)
+**Tests:** 843/843 unit (54 files) + 142/142 E2E (Playwright: 10 browser/device projects × 5 spec files)
 **TypeScript:** Clean (`tsc --noEmit` zero errors)
 **Codebase:** 174 source files (47 components, 14 hooks, 42 utils), ~35,400 lines
-**Supabase Backend:** Multi-device sync via Supabase Postgres (JSONB form data, RLS, optimistic concurrency, draft locking, real-time subscriptions, audit dual-write, conflict resolution). Graceful fallback when not configured.
+**Supabase Backend:** Multi-device sync via Supabase Postgres (JSONB form data, RLS, optimistic concurrency, draft locking, real-time subscriptions, audit dual-write, conflict resolution). Graceful fallback when not configured. **EPIC-24.1:** Per-org AES-256-GCM encryption of form_data before Supabase sync (ORGENC: prefix, PBKDF2 key derivation via Netlify Function, non-extractable CryptoKey, plaintext passthrough for migration).
 **Multi-Tenant:** AdminPortal (org management), BrandingEditor (per-org logo/colors), TenantConfigEditor (feature flags), OrgSetupScreen (onboarding). 3-layer config resolution: Netlify remote → Supabase tenant → Local IndexedDB.
 **Submit Flow:** Real end-to-end submit with Supabase upsert, status transition (draft→submitted), re-submit protection, draft ID migration (draft-xxx→UUID).
 **Dev Server:** `npm run dev` → localhost:5173
@@ -128,6 +128,7 @@
 | 2026-02-18 | Session 39 | **EPIC-23 Supabase Phase 1+2: Foundation + Data Sync (committed f314c11).** (1) Set up Supabase project, ran schema SQL (organizations, profiles, drafts, audit_logs, app_config tables with RLS, lock functions, version triggers, realtime publishing). (2) Created `supabaseClient.ts` (singleton, `isSupabaseConfigured()` guard), generated `types/supabase.ts`. (3) Added `@supabase/supabase-js ^2.97.0`, updated CSP in vite.config.ts and netlify.toml. (4) Created `useSupabaseAuth.ts` hook — Google OAuth via Supabase Auth, maps session to existing AuthUser shape, graceful GIS fallback. (5) Modified LoginScreen.tsx + App.tsx for Supabase auth flow. (6) Created `supabaseDrafts.ts` (CRUD: upsert with optimistic version concurrency, fetch, delete). (7) Created `useSupabaseSync.ts` (background sync with 3s debounce, offline queue). (8) Bumped IndexedDB to v7 with `supabaseSyncQueue` store. (9) Created `supabaseMigration.ts` (one-time IndexedDB → Supabase migration). (10) Created `supabaseAuditLog.ts` for remote audit log writes. (11) Created `useOnlineStatus.ts` hook. Tests: 74 new Supabase tests added. 20 files changed, +2377 lines. |
 | 2026-02-19 | Session 40 | **EPIC-23 Supabase Phase 3: Real-Time + Locks (committed a2d6657).** (1) Created `useSupabaseDrafts.ts` with Realtime subscription — live draft list via `supabase.channel('drafts-org').on('postgres_changes', ...)`. (2) Created `useDraftLock.ts` hook — Postgres `FOR UPDATE` atomicity, 30-min auto-expiry, 5-min renewal via `setInterval`, `beforeunload` safety net, lock indicators. (3) Integrated locks into both AssessmentWizard and ServiceContractWizard — lock acquire on mount, release on exit. (4) Added lock indicators in Dashboard showing locked/synced state. 8 files changed, +1182 lines. |
 | 2026-02-20 | Session 41 | **EPIC-23 Supabase Phase 4: Audit + Conflict + Polish (committed 3b5bef0).** (1) Dual-write audit logs — `setAuditDualWriteContext(orgId, email)` pattern, `logAudit()` auto-dual-writes to Supabase. Wired in App.tsx via useEffect. (2) Created `ConflictResolutionModal.tsx` — three-option modal (Keep Mine / Use Theirs / Cancel) with focus trap + ARIA. (3) Added `forceOverwrite` option to `upsertRemoteDraft()`. (4) Enhanced `useSupabaseSync.ts` with conflict detection (version mismatch → `conflictInfo`), `resolveConflict('keepMine' | 'useTheirs')`, `dismissConflict()`. (5) Integrated conflict UI into both wizards. (6) Added "Cloud Sync (Supabase)" section to SettingsScreen. (7) Fixed `supabaseOrgId` destructuring bug in ServiceContractWizard. (8) 26 new tests (useSupabaseSync: 12, ConflictResolutionModal: 10, auditDualWrite: 4). Fixed settingsEmailTest.test.ts mocks. Total: 587/587 unit tests (43 files), TypeScript clean. 12 files changed, +1036 lines. |
+| 2026-02-21 | Session 46 | **EPIC-24.1: Org-Level Supabase Data Encryption.** (1) **org-key.mts Netlify Function:** PBKDF2 key derivation from `EHC_ENCRYPTION_MASTER_KEY` env var with per-org salt (`ehc-org-key-{orgId}`). 100K iterations, SHA-256. JWT auth via Supabase service_role client. Rate limiting 10/min/IP. Returns base64 key bytes. (2) **orgKeyManager.ts:** Client-side module managing per-org AES-256-GCM encryption key. `fetchOrgKey(orgId)` fetches from `/api/org-key` and imports as non-extractable CryptoKey. `encryptOrgData()` produces `ORGENC:` prefixed base64(iv+ciphertext). `decryptOrgData()` handles 3 cases: ORGENC: → decrypt, plain object → passthrough (migration), plain JSON string → parse. Loop-based binary encoding (no stack overflow). (3) **supabaseDrafts.ts:** Integrated `encryptOrgData()` before `upsertRemoteDraft` and `decryptOrgData()` after `fetchRemoteDraft`. (4) **useSupabaseSync.ts + useSupabaseDrafts.ts:** Updated to use org encryption. (5) **App.tsx:** `fetchOrgKey()` called on Supabase auth, `clearOrgKey()` on sign-out. (6) **Bug fixed:** Missing `export const config = { path: '/api/org-key' }` in org-key.mts causing 404. (7) **Testing finding:** Supabase sync only fires on explicit "Save Draft" click, not auto-save (testing procedure, not code bug). (8) 17 new tests in `orgKeyManager.test.ts`. **New files:** `orgKeyManager.ts`, `org-key.mts`, `orgKeyManager.test.ts`, `tsconfig.functions.json`. Tests: 843/843 unit (54 files). TypeScript clean. |
 | 2026-02-20 | Sessions 42-45 | **EPIC-23 P1: Multi-Tenant Branding + Tenant Config + Submit Flow.** (1) **Multi-tenant branding:** `BrandingEditor.tsx` admin UI for org-level branding (logo, colors, company name), `types/branding.ts`, `utils/brandingHelpers.ts`. Stored in Supabase `tenant_config`. (2) **Tenant config system:** `TenantConfigEditor.tsx`, `types/tenantConfig.ts`, `utils/tenantConfigDefaults.ts`, `hooks/useTenantConfig.ts` — 3-layer config resolution (Netlify remote → Supabase tenant → Local IndexedDB). Feature flags, branding, auth settings per org. (3) **Remote config:** `utils/remoteConfig.ts` + `types/remoteConfig.ts` — Netlify-hosted global config with local cache + 5-min TTL. (4) **Admin portal:** `AdminPortal.tsx` unified admin UI. `types/admin.ts`. `netlify/functions/admin.mts` with JWT auth + super_admin gate. (5) **Org setup:** `OrgSetupScreen.tsx` first-run onboarding. (6) **Real submit flow:** `ReviewSubmit.tsx` + `ContractReviewSubmit.tsx` end-to-end submit with Supabase upsert, status transition (draft→submitted), re-submit protection. (7) **Draft ID migration:** `utils/draftIdMigration.ts` one-time `draft-xxx` → UUID migration. (8) **PDF branding:** Dynamic logo/colors from tenant config. (9) **Supabase schema v3:** `schema-v3-tenant-config.sql`. (10) **Netlify config function:** `netlify/functions/config.mts`. (11) **E2E infrastructure fixes:** auth-bypass fixture DB_VERSION 4→7, Supabase env var bypass in playwright.config.ts, Settings admin gate test updates. (12) **Go-live audit v10:** 0 blockers — security + code quality deep audits clean. Tests: 826/826 unit (53 files) + 142/142 E2E (10 browser/device projects). TypeScript clean. Production build succeeds. |
 
 ---
@@ -244,6 +245,7 @@ src/
     brandingHelpers.ts   # Branding utility functions (color helpers, logo processing)
     tenantConfigDefaults.ts # Default tenant config values
     draftIdMigration.ts  # One-time draft-xxx → UUID migration for Supabase
+    orgKeyManager.ts     # Per-org AES-256-GCM encryption for Supabase form_data (ORGENC: prefix)
     db.ts                # IndexedDB: drafts (encrypted) + sync queue + auth config + emailConfig
     pdf/
       pdfStyles.ts              # Colors, margins, fonts, helpers (HEADER_HEIGHT=35mm)
@@ -299,6 +301,7 @@ src/
     AdminPortal.test.tsx        # Admin portal component tests
     OrgSetupScreen.test.tsx     # Org setup screen component tests
     adminApi.test.ts            # Admin API tests (org CRUD, user management)
+    orgKeyManager.test.ts       # 17 org encryption tests (encrypt/decrypt, graceful degradation, migration)
     remoteConfig.test.ts        # Remote config fetch + cache tests
     settingsScreen.test.tsx     # Settings screen multi-tenant tests
 ```
@@ -487,6 +490,10 @@ A second 7-step wizard for the Service Agreement packet, running alongside the e
 - 100 new tests (587 total across 43 files)
 - 3 commits: f314c11 (Phase 1+2, +2377 lines), a2d6657 (Phase 3, +1182 lines), 3b5bef0 (Phase 4, +1036 lines)
 - Total: ~4,595 new lines of code
+
+### Sprint 24 — Supabase Data Encryption (IN PROGRESS)
+- 24.1 Org-level form_data encryption — Done (orgKeyManager.ts, org-key.mts, PBKDF2 key derivation, AES-256-GCM, ORGENC: prefix, 17 tests)
+- Tests: 843/843 unit (54 files) + 142/142 E2E
 
 ### Sprint 23 — Multi-Tenant P1: Branding + Config + Submit (COMPLETE)
 - EPIC-23 P1 stories implemented: multi-tenant branding, tenant config, admin portal, org setup, submit flow

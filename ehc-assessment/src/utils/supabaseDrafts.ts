@@ -9,6 +9,7 @@
 
 import { getSupabaseClient, isSupabaseConfigured, getDeviceId } from './supabaseClient';
 import { logger } from './logger';
+import { encryptOrgData, decryptOrgData } from './orgKeyManager';
 import type { DraftRow, DraftInsert, DraftUpdate } from '../types/supabase';
 import type { DraftRecord, DraftType } from './db';
 
@@ -17,13 +18,14 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Convert a Supabase DraftRow into the local DraftRecord shape. */
-export function rowToDraftRecord(row: DraftRow): DraftRecord {
+/** Convert a Supabase DraftRow into the local DraftRecord shape. Decrypts form_data if encrypted. */
+export async function rowToDraftRecord(row: DraftRow): Promise<DraftRecord> {
+  const decryptedData = await decryptOrgData(row.form_data);
   return {
     id: row.id,
     clientName: row.client_name,
     type: row.type as DraftType,
-    data: row.form_data as unknown as DraftRecord['data'],
+    data: decryptedData as unknown as DraftRecord['data'],
     lastModified: row.updated_at,
     status: row.status,
     currentStep: row.current_step,
@@ -32,12 +34,13 @@ export function rowToDraftRecord(row: DraftRow): DraftRecord {
   };
 }
 
-/** Convert a local DraftRecord into a Supabase DraftInsert payload. */
-export function draftRecordToInsert(
+/** Convert a local DraftRecord into a Supabase DraftInsert payload. Encrypts form_data if key available. */
+export async function draftRecordToInsert(
   draft: DraftRecord,
   orgId: string,
   userId: string,
-): DraftInsert {
+): Promise<DraftInsert> {
+  const encryptedData = await encryptOrgData(draft.data as unknown as Record<string, unknown>);
   return {
     id: draft.id,
     org_id: orgId,
@@ -46,23 +49,24 @@ export function draftRecordToInsert(
     status: draft.status,
     current_step: draft.currentStep ?? 0,
     linked_assessment_id: draft.linkedAssessmentId ?? null,
-    form_data: draft.data as unknown as Record<string, unknown>,
+    form_data: encryptedData,
     created_by: userId,
     updated_by: userId,
   };
 }
 
-/** Convert a local DraftRecord into a Supabase DraftUpdate payload. */
-export function draftRecordToUpdate(
+/** Convert a local DraftRecord into a Supabase DraftUpdate payload. Encrypts form_data if key available. */
+export async function draftRecordToUpdate(
   draft: DraftRecord,
   userId: string,
-): DraftUpdate {
+): Promise<DraftUpdate> {
+  const encryptedData = await encryptOrgData(draft.data as unknown as Record<string, unknown>);
   return {
     client_name: draft.clientName,
     status: draft.status,
     current_step: draft.currentStep ?? 0,
     linked_assessment_id: draft.linkedAssessmentId ?? null,
-    form_data: draft.data as unknown as Record<string, unknown>,
+    form_data: encryptedData,
     updated_by: userId,
   };
 }
@@ -138,7 +142,7 @@ export async function upsertRemoteDraft(
 
   if (existing) {
     // UPDATE path — with optimistic concurrency if we have a known version
-    const update = draftRecordToUpdate(draft, userId);
+    const update = await draftRecordToUpdate(draft, userId);
 
     let query = sb
       .from('drafts')
@@ -165,7 +169,7 @@ export async function upsertRemoteDraft(
     return data as DraftRow;
   } else {
     // INSERT path
-    const insert = draftRecordToInsert(draft, orgId, userId);
+    const insert = await draftRecordToInsert(draft, orgId, userId);
     const { data, error } = await sb
       .from('drafts')
       .insert(insert)
