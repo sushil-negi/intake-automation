@@ -26,7 +26,8 @@ test.describe('Dashboard', () => {
   test('navigates to settings', async ({ page }) => {
     await page.goto('/');
     await page.click('text=Admin / Settings');
-    await expect(page.locator('text=Google Sheets Connection')).toBeVisible();
+    // Non-admin users see restricted view with Activity Log
+    await expect(page.locator('text=Activity Log')).toBeVisible();
   });
 });
 
@@ -90,14 +91,15 @@ test.describe('Settings Screen', () => {
     await page.goto('/');
     await page.click('text=Admin / Settings');
 
-    await expect(page.locator('text=Google Sheets Connection')).toBeVisible();
-    await expect(page.locator('text=Spreadsheet ID')).toBeVisible();
+    // With auth bypassed (no allowedEmails), user is treated as admin — all sections visible
+    await expect(page.locator('text=Activity Log')).toBeVisible();
+    await expect(page.locator('text=HIPAA Compliance')).toBeVisible();
   });
 
   test('can navigate home from settings', async ({ page }) => {
     await page.goto('/');
     await page.click('text=Admin / Settings');
-    await expect(page.locator('text=Google Sheets Connection')).toBeVisible();
+    await expect(page.locator('text=Activity Log')).toBeVisible();
 
     await page.click('button:has-text("Home")');
     await expect(page.locator('text=New Assessment')).toBeVisible();

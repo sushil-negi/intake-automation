@@ -103,18 +103,18 @@ function GettingStartedContent() {
           <li><strong>New Assessment</strong> &mdash; Start a client intake assessment with 7 steps: Client Help List, History, Assessment, Medications, Home Safety, Consent & Signatures, and Review.</li>
           <li><strong>Service Contract</strong> &mdash; Create a service agreement. You can also start one directly from a completed assessment to auto-fill client information.</li>
           <li><strong>Resume Draft</strong> &mdash; Continue working on a previously saved assessment or contract.</li>
-          <li><strong>Settings</strong> &mdash; Configure Google Sheets sync, authentication, idle timeout, and data management.</li>
+          <li><strong>Settings</strong> &mdash; Configure Google Sheets sync, cloud sync, authentication, email templates, and data management.</li>
         </ol>
       </section>
 
       <section>
         <h3 className="font-semibold text-gray-900 dark:text-slate-100 mb-2">Auto-Save</h3>
-        <p>Your work is automatically saved and encrypted in your browser as you type. Look for the <span className="text-green-600 dark:text-green-400 font-medium">Saved</span> indicator in the header.</p>
+        <p>Your work is automatically saved and encrypted on your device as you type. When cloud sync is enabled, changes also sync to the server in the background. Look for the <span className="text-green-600 dark:text-green-400 font-medium">Saved</span> indicator in the header.</p>
       </section>
 
       <section>
         <h3 className="font-semibold text-gray-900 dark:text-slate-100 mb-2">Saving Drafts</h3>
-        <p>Click <strong>Save Draft</strong> in the footer to save a named draft you can resume later. Drafts are stored securely in your browser&apos;s IndexedDB with encryption.</p>
+        <p>Click <strong>Save Draft</strong> in the footer to save a named draft you can resume later. Drafts are encrypted and stored securely on your device. When cloud sync is configured, drafts automatically sync across all devices in your organization.</p>
       </section>
 
       <section>
@@ -182,7 +182,7 @@ function FeaturesContent() {
 
       <section>
         <h3 className="font-semibold text-gray-900 dark:text-slate-100 mb-2">Offline Support</h3>
-        <p>The app works offline. Your data is saved locally with AES-256 encryption. A yellow banner appears when you&apos;re disconnected.</p>
+        <p>The app works offline. Your data is saved locally with AES-256 encryption. A yellow banner appears when you&apos;re disconnected. Any changes made offline are automatically synced to the cloud when your connection is restored.</p>
       </section>
 
       <section>

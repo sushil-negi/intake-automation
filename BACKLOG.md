@@ -534,10 +534,10 @@ All remaining EPIC 19 (HIPAA) and EPIC 20 (UI/UX) stories completed:
 | 23.2 | Tenant management & onboarding | - AdminPortal.tsx: org list, create org (name + slug), suspend/reactivate, user list per org, invite user (email + role + name), remove user. - admin.mts Netlify Function: 6 actions (listOrgs, createOrg, suspendOrg, listUsers, inviteUser, removeUser), JWT auth, super_admin gate, rate limiting (30/min/IP). - OrgSetupScreen.tsx for users without org assignment. - org_summary Postgres view for org list with user counts. | P0 | Done |
 | 23.3 | Tenant-aware authentication | - Supabase Auth with Google OAuth provider (replaces legacy GIS). - `useSupabaseAuth` hook maps Supabase session to `AuthUser`. - Profile with `org_id` + `role` (super_admin / admin / staff). - `handle_new_user` Postgres trigger auto-creates profile on first sign-in. - OrgSetupScreen gates users without org_id. - Graceful fallback: app works with legacy GIS auth when Supabase not configured. | P0 | Done |
 | 23.4 | Subdomain routing | N/A | — | Deferred — single URL architecture; org isolation handled by RLS + profile org_id. Can be added as cosmetic layer later if needed. |
-| 23.5 | Per-tenant configuration | N/A | — | Done — env-var-based `/api/config` sufficient for shared-URL model. `app_config` table exists per org_id for per-org settings. |
+| 23.5 | Per-tenant configuration | - 3-layer config resolution: Netlify remote → Supabase tenant → Local IndexedDB. - `TenantConfigEditor.tsx` admin UI for feature flags, branding, auth settings per org. - `useTenantConfig.ts` hook resolves config layers. - `remoteConfig.ts` fetches global Netlify config with 5-min cache TTL. - `tenantConfigDefaults.ts` default values. | P1 | Done |
 | 23.6 | Role-based access control (RBAC) | - Roles per tenant: Owner, Admin, Staff (Nurse/Aide), Read-Only. - Owner: full settings + billing access. - Admin: manage users, view all assessments, configure sheets. - Staff: create/edit own assessments, view assigned clients. - Read-Only: view assessments, export PDF (no edit). - Role-field visibility: hide sensitive fields from non-admin roles. - Permissions stored in database, enforced server-side + UI. | P1 | Deferred — basic admin/staff roles exist in profiles table. Fine-grained permissions deferred. |
 | 23.7 | Billing & subscriptions (Stripe) | - Stripe integration for recurring billing. - Plan tiers, usage-based metering, Stripe Customer Portal. | P1 | Deferred — not needed for internal EHC use. Required only if selling to external agencies. |
-| 23.8 | White-label branding | N/A | — | Done — single brand (EHC). CSS custom properties and PDF branding can be parameterized later if selling to external agencies. |
+| 23.8 | White-label branding | - `BrandingEditor.tsx` admin UI for per-org logo, colors, company name. - `types/branding.ts` BrandingConfig interface. - `utils/brandingHelpers.ts` color helpers + logo processing. - Stored in Supabase `tenant_config` table. - Dynamic logo/colors in PDF output via `pdfHeader.ts` + `pdfStyles.ts`. | P1 | Done |
 | 23.9 | Data migration from single-tenant | - `supabaseMigration.ts` — one-time IndexedDB → Supabase migration with conflict handling. - Preserves all draft data and metadata. | P1 | Done |
 | 23.10 | Centralized analytics dashboard | N/A | — | Deferred — Supabase dashboard provides direct SQL access to all org/draft/audit data. Custom dashboard can be added incrementally if needed. |
 | 23.11 | Multi-tenant API layer | N/A | — | Deferred — direct Supabase client with RLS provides tenant-scoped CRUD. admin.mts handles super-admin operations. No separate REST API layer needed. |
@@ -552,8 +552,10 @@ All remaining EPIC 19 (HIPAA) and EPIC 20 (UI/UX) stories completed:
 - **Conflict Resolution:** Version mismatch detection → `ConflictResolutionModal` (Keep Mine / Use Theirs / Cancel). "Keep Mine" force-overwrites; "Use Theirs" reloads from remote.
 - **Audit:** Dual-write to IndexedDB + Supabase via `setAuditDualWriteContext()` pattern.
 - **Real-Time:** Supabase Realtime channels for live draft list updates across devices.
-- **Submit Flow:** Real submit handler saves draft with `status: 'submitted'`, syncs to Supabase, releases lock, navigates home.
-- **Tests:** 821 tests across 53 files.
+- **Submit Flow:** Real submit handler saves draft with `status: 'submitted'`, syncs to Supabase, releases lock, navigates home. Re-submit protection prevents duplicate submissions.
+- **Draft ID Migration:** `draftIdMigration.ts` — one-time migration of `draft-xxx` IDs to UUIDs for Supabase compatibility.
+- **Config Function:** `netlify/functions/config.mts` — serves remote config with environment-specific overrides.
+- **Tests:** 826 unit tests across 53 files + 142 E2E tests across 10 browser/device projects.
 - **Prod:** Schema deployed to prod Supabase (`dpeygehqahfskcxpwzru.supabase.co`), org `ehc-chester` created. Bootstrap SQL ready for super_admin profile creation.
 
 ---

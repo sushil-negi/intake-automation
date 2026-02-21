@@ -518,7 +518,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                 <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
                   Shared settings (OAuth Client ID, allowed emails, sheet names) are loaded from the server.
                   Local edits will apply until the next page reload. To change shared config permanently,
-                  update the Netlify environment variables.
+                  update the tenant configuration via the Admin Portal or Netlify environment variables.
                 </p>
               </div>
             </div>
@@ -1100,7 +1100,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                         </p>
                         <p className="text-xs text-red-600 dark:text-red-400 mt-2">
                           To sync unmasked PHI, first execute a BAA with Google Workspace, then check the box above.
-                          Data is encrypted at rest on this device using AES-GCM 256-bit encryption.
+                          Data is encrypted at rest on this device using AES-GCM 256-bit encryption.{supabaseEnabled ? ' Cloud data is protected by Supabase TLS + AES-256 encryption.' : ''}
                         </p>
                       </div>
                     </div>
@@ -1356,7 +1356,9 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                   <div className="bg-blue-50 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-700 rounded-lg p-3">
                     <p className="text-xs text-blue-800 dark:text-blue-300">
                       When enabled, users must sign in with a Google account before accessing any part of the app.
-                      Uses the same OAuth Client ID configured above for Google Sheets.
+                      {supabaseEnabled
+                        ? 'Authentication is managed through Supabase (Google OAuth).'
+                        : 'Uses the same OAuth Client ID configured above for Google Sheets.'}
                       {authConfig.allowedEmails.length === 0 && (
                         <strong className="block mt-1">
                           No allowed emails configured — any Google account can sign in. Add emails below to restrict access.
@@ -1465,9 +1467,9 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
           <AccordionSection title="Data Management">
             <div className="space-y-4">
               <div className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-3 text-xs text-gray-500 dark:text-slate-400 space-y-1">
-                <p><strong>Auto-save:</strong> Form data is stored in localStorage while you work.</p>
-                <p><strong>Drafts:</strong> Saved drafts are stored in IndexedDB on this device.</p>
-                <p><strong>Sync:</strong> When configured, data is pushed to Google Sheets for backup and reporting.</p>
+                <p><strong>Auto-save:</strong> Form data is encrypted and stored locally while you work.</p>
+                <p><strong>Drafts:</strong> Saved drafts are stored on this device.{supabaseEnabled ? ' With cloud sync enabled, drafts also sync to Supabase for multi-device access.' : ''}</p>
+                <p><strong>Sheets Sync:</strong> When configured, data is pushed to Google Sheets for backup and reporting.</p>
               </div>
 
               <div className="flex items-center gap-3 flex-wrap">
@@ -1515,11 +1517,13 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
                 {[
                   { label: 'AES-256-GCM encryption at rest (localStorage + IndexedDB)', active: true },
                   { label: 'PHI auto-masking for Google Sheets sync (when BAA not confirmed)', active: true },
-                  { label: 'Audit logging with HMAC tamper-evidence', active: true },
+                  { label: 'Audit logging with HMAC tamper-evidence (local + cloud dual-write)', active: true },
                   { label: 'Session expiry (8-hour absolute + configurable idle timeout)', active: true },
                   { label: 'Auto-purge of old data after 90 days', active: true },
                   { label: 'Content Security Policy (CSP) + HSTS security headers', active: true },
-                  { label: 'No external data transmission without user action', active: true },
+                  { label: 'Supabase RLS row-level security (org-scoped data isolation)', active: true },
+                  { label: 'Supabase TLS encryption in transit + AES-256 at rest', active: true },
+                  { label: 'Draft locking prevents concurrent edits across devices', active: true },
                   { label: 'Export privacy filters (Minimum Necessary standard)', active: true },
                   { label: 'Consent timestamps and revocation audit trail', active: true },
                   { label: 'CSV formula injection prevention (OWASP)', active: true },
@@ -1535,12 +1539,12 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
               <div className="space-y-2 pt-3 border-t border-gray-100 dark:border-slate-700">
                 <p className="text-xs font-semibold text-gray-700 dark:text-slate-300">Limitations & User Responsibilities</p>
                 {[
-                  'No server-side storage — all data resides on this device only',
+                  'Supabase free tier does not include HIPAA BAA — Team plan ($599/mo) required for formal compliance',
                   'No BAA with Google is provided — user must execute their own BAA with Google Workspace',
                   'No email encryption — do not email exported files containing unmasked PHI',
                   'PDF accessibility tags not supported (jsPDF limitation)',
                   'No external error monitoring (Sentry HIPAA plan optional)',
-                  'Encryption keys are device-specific — data cannot be recovered if device is lost',
+                  'Local encryption keys are device-specific — cloud sync via Supabase enables multi-device access',
                 ].map((item) => (
                   <div key={item} className="flex items-start gap-2">
                     <span className="text-amber-500 dark:text-amber-400 text-sm flex-shrink-0" aria-hidden="true">&#9888;</span>
@@ -1881,7 +1885,7 @@ export function SettingsScreen({ onGoHome, authUserEmail, configSource, orgName,
           <AccordionSection title="Activity Log">
             <div className="space-y-4">
               <p className="text-xs text-gray-500 dark:text-slate-400">
-                HIPAA-required audit trail of all PHI access and system actions. Stored locally in IndexedDB.
+                HIPAA-required audit trail of all PHI access and system actions.{supabaseEnabled ? ' Logs are stored locally and synced to the cloud.' : ' Stored locally on this device.'}
               </p>
 
               <div className="flex items-center gap-3 flex-wrap">

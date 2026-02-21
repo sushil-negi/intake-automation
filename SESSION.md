@@ -32,7 +32,7 @@
 - **Offline Storage:** localStorage (auto-save), IndexedDB (drafts + sync queue)
 - **Build Tool:** Vite
 - **Package Manager:** npm
-- **Testing:** Vitest + jsdom (587 unit tests, 43 files) + Playwright + axe-core (16 E2E tests)
+- **Testing:** Vitest + jsdom (826 unit tests, 53 files) + Playwright + axe-core (142 E2E tests across 10 browser/device projects)
 
 ---
 
@@ -48,12 +48,14 @@
 **Audit Logging:** Full audit trail (29 actions incl. consent_grant/consent_revoke) in IndexedDB with HMAC integrity, CSV export — COMPLETE
 **Email PDF:** Resend API via Netlify Function, EmailComposeModal with focus trap, configurable subject/body templates per document type, `{clientName}/{date}/{staffName}` placeholders, default CC auto-fill, email signature, branded HTML formatting (table-based layout, EHC brand colors), PHI redaction in audit logs, rate limiting (5/min/IP), max 4MB PDF — COMPLETE
 **Accessibility:** WCAG AA contrast, required indicators, heading hierarchy, error icons, aria-live, focus traps, automated axe-core WCAG testing in CI — COMPLETE
-**Go-Live Audit:** v2 (27 findings resolved) + v3 (13 more fixes) + v4 (11 findings: 10 resolved, 1 accepted risk) + v5 (2 warnings resolved: source maps disabled, stable signature lib) + v6 (automated WCAG testing, contrast fix) — READY (0 blockers, 0 warnings)
+**Go-Live Audit:** v2-v9 (all resolved) + **v10** (multi-tenant branding, tenant config, E2E infrastructure fixes, 826 unit + 142 E2E tests, 0 blockers) — READY
 **Documentation:** README.md, CONTRIBUTING.md, docs/SECURITY.md, docs/HIPAA.md, docs/DEPLOYMENT.md, docs/GOOGLE-SHEETS-SETUP.md
-**Tests:** 587/587 unit (43 files) + 16/16 E2E (Playwright: 11 smoke + 5 accessibility)
+**Tests:** 826/826 unit (53 files) + 142/142 E2E (Playwright: 10 browser/device projects × 5 spec files)
 **TypeScript:** Clean (`tsc --noEmit` zero errors)
-**Codebase:** 151 source files (43 components, 12 hooks, 39 utils), ~28,500 lines
+**Codebase:** 174 source files (47 components, 14 hooks, 42 utils), ~35,400 lines
 **Supabase Backend:** Multi-device sync via Supabase Postgres (JSONB form data, RLS, optimistic concurrency, draft locking, real-time subscriptions, audit dual-write, conflict resolution). Graceful fallback when not configured.
+**Multi-Tenant:** AdminPortal (org management), BrandingEditor (per-org logo/colors), TenantConfigEditor (feature flags), OrgSetupScreen (onboarding). 3-layer config resolution: Netlify remote → Supabase tenant → Local IndexedDB.
+**Submit Flow:** Real end-to-end submit with Supabase upsert, status transition (draft→submitted), re-submit protection, draft ID migration (draft-xxx→UUID).
 **Dev Server:** `npm run dev` → localhost:5173
 
 ---
@@ -126,6 +128,7 @@
 | 2026-02-18 | Session 39 | **EPIC-23 Supabase Phase 1+2: Foundation + Data Sync (committed f314c11).** (1) Set up Supabase project, ran schema SQL (organizations, profiles, drafts, audit_logs, app_config tables with RLS, lock functions, version triggers, realtime publishing). (2) Created `supabaseClient.ts` (singleton, `isSupabaseConfigured()` guard), generated `types/supabase.ts`. (3) Added `@supabase/supabase-js ^2.97.0`, updated CSP in vite.config.ts and netlify.toml. (4) Created `useSupabaseAuth.ts` hook — Google OAuth via Supabase Auth, maps session to existing AuthUser shape, graceful GIS fallback. (5) Modified LoginScreen.tsx + App.tsx for Supabase auth flow. (6) Created `supabaseDrafts.ts` (CRUD: upsert with optimistic version concurrency, fetch, delete). (7) Created `useSupabaseSync.ts` (background sync with 3s debounce, offline queue). (8) Bumped IndexedDB to v7 with `supabaseSyncQueue` store. (9) Created `supabaseMigration.ts` (one-time IndexedDB → Supabase migration). (10) Created `supabaseAuditLog.ts` for remote audit log writes. (11) Created `useOnlineStatus.ts` hook. Tests: 74 new Supabase tests added. 20 files changed, +2377 lines. |
 | 2026-02-19 | Session 40 | **EPIC-23 Supabase Phase 3: Real-Time + Locks (committed a2d6657).** (1) Created `useSupabaseDrafts.ts` with Realtime subscription — live draft list via `supabase.channel('drafts-org').on('postgres_changes', ...)`. (2) Created `useDraftLock.ts` hook — Postgres `FOR UPDATE` atomicity, 30-min auto-expiry, 5-min renewal via `setInterval`, `beforeunload` safety net, lock indicators. (3) Integrated locks into both AssessmentWizard and ServiceContractWizard — lock acquire on mount, release on exit. (4) Added lock indicators in Dashboard showing locked/synced state. 8 files changed, +1182 lines. |
 | 2026-02-20 | Session 41 | **EPIC-23 Supabase Phase 4: Audit + Conflict + Polish (committed 3b5bef0).** (1) Dual-write audit logs — `setAuditDualWriteContext(orgId, email)` pattern, `logAudit()` auto-dual-writes to Supabase. Wired in App.tsx via useEffect. (2) Created `ConflictResolutionModal.tsx` — three-option modal (Keep Mine / Use Theirs / Cancel) with focus trap + ARIA. (3) Added `forceOverwrite` option to `upsertRemoteDraft()`. (4) Enhanced `useSupabaseSync.ts` with conflict detection (version mismatch → `conflictInfo`), `resolveConflict('keepMine' | 'useTheirs')`, `dismissConflict()`. (5) Integrated conflict UI into both wizards. (6) Added "Cloud Sync (Supabase)" section to SettingsScreen. (7) Fixed `supabaseOrgId` destructuring bug in ServiceContractWizard. (8) 26 new tests (useSupabaseSync: 12, ConflictResolutionModal: 10, auditDualWrite: 4). Fixed settingsEmailTest.test.ts mocks. Total: 587/587 unit tests (43 files), TypeScript clean. 12 files changed, +1036 lines. |
+| 2026-02-20 | Sessions 42-45 | **EPIC-23 P1: Multi-Tenant Branding + Tenant Config + Submit Flow.** (1) **Multi-tenant branding:** `BrandingEditor.tsx` admin UI for org-level branding (logo, colors, company name), `types/branding.ts`, `utils/brandingHelpers.ts`. Stored in Supabase `tenant_config`. (2) **Tenant config system:** `TenantConfigEditor.tsx`, `types/tenantConfig.ts`, `utils/tenantConfigDefaults.ts`, `hooks/useTenantConfig.ts` — 3-layer config resolution (Netlify remote → Supabase tenant → Local IndexedDB). Feature flags, branding, auth settings per org. (3) **Remote config:** `utils/remoteConfig.ts` + `types/remoteConfig.ts` — Netlify-hosted global config with local cache + 5-min TTL. (4) **Admin portal:** `AdminPortal.tsx` unified admin UI. `types/admin.ts`. `netlify/functions/admin.mts` with JWT auth + super_admin gate. (5) **Org setup:** `OrgSetupScreen.tsx` first-run onboarding. (6) **Real submit flow:** `ReviewSubmit.tsx` + `ContractReviewSubmit.tsx` end-to-end submit with Supabase upsert, status transition (draft→submitted), re-submit protection. (7) **Draft ID migration:** `utils/draftIdMigration.ts` one-time `draft-xxx` → UUID migration. (8) **PDF branding:** Dynamic logo/colors from tenant config. (9) **Supabase schema v3:** `schema-v3-tenant-config.sql`. (10) **Netlify config function:** `netlify/functions/config.mts`. (11) **E2E infrastructure fixes:** auth-bypass fixture DB_VERSION 4→7, Supabase env var bypass in playwright.config.ts, Settings admin gate test updates. (12) **Go-live audit v10:** 0 blockers — security + code quality deep audits clean. Tests: 826/826 unit (53 files) + 142/142 E2E (10 browser/device projects). TypeScript clean. Production build succeeds. |
 
 ---
 
@@ -186,6 +189,10 @@ src/
     AssessmentWizard.tsx # Assessment orchestrator (7 steps)
     ServiceContractWizard.tsx # Contract orchestrator (7 steps)
     DraftManager.tsx     # Dual-type draft list with filter tabs
+    AdminPortal.tsx      # Org management, user management (super_admin gate)
+    BrandingEditor.tsx   # Per-org logo, colors, company name
+    TenantConfigEditor.tsx # Per-org feature flags, branding, auth settings
+    OrgSetupScreen.tsx   # First-run onboarding for new organizations
     wizard/              # Wizard shell, progress bar, step navigation
     forms/               # Assessment form steps (7 components)
     forms/contract/      # Contract form steps (7 components)
@@ -203,6 +210,7 @@ src/
     useSupabaseAuth.ts   # Supabase Google OAuth wrapper (graceful GIS fallback)
     useSupabaseDrafts.ts # Remote drafts list with Realtime subscription
     useSupabaseSync.ts   # Background sync + offline queue + conflict resolution
+    useTenantConfig.ts   # 3-layer config resolution (remote → tenant → local)
   validation/
     schemas.ts           # Assessment Zod schemas (7 steps)
     contractSchemas.ts   # Contract Zod schemas (7 steps, null for Review)
@@ -212,6 +220,10 @@ src/
     serviceContract.ts   # Contract form interfaces (6 sub-interfaces)
     emailConfig.ts       # Email template config interfaces (per-document templates, signature, HTML toggle)
     supabase.ts          # Generated Supabase database types
+    branding.ts          # BrandingConfig interface (logo, colors, company name)
+    tenantConfig.ts      # TenantConfig interface (feature flags, branding, auth)
+    remoteConfig.ts      # RemoteConfig interface (global config from Netlify)
+    admin.ts             # Admin API types (org management, user management)
   utils/
     initialData.ts       # Assessment defaults
     contractInitialData.ts # Contract defaults (includes termsConditions)
@@ -228,6 +240,10 @@ src/
     supabaseDrafts.ts    # CRUD operations on drafts table (upsert, fetch, delete)
     supabaseAuditLog.ts  # Remote audit log read/write via Supabase
     supabaseMigration.ts # One-time IndexedDB → Supabase migration
+    remoteConfig.ts      # Netlify-hosted global config with local cache + 5-min TTL
+    brandingHelpers.ts   # Branding utility functions (color helpers, logo processing)
+    tenantConfigDefaults.ts # Default tenant config values
+    draftIdMigration.ts  # One-time draft-xxx → UUID migration for Supabase
     db.ts                # IndexedDB: drafts (encrypted) + sync queue + auth config + emailConfig
     pdf/
       pdfStyles.ts              # Colors, margins, fonts, helpers (HEADER_HEIGHT=35mm)
@@ -280,6 +296,11 @@ src/
     supabaseAuditLog.test.ts    # 8 audit log tests
     ConflictResolutionModal.test.tsx # 10 modal component tests
     auditDualWrite.test.ts      # 4 dual-write tests
+    AdminPortal.test.tsx        # Admin portal component tests
+    OrgSetupScreen.test.tsx     # Org setup screen component tests
+    adminApi.test.ts            # Admin API tests (org CRUD, user management)
+    remoteConfig.test.ts        # Remote config fetch + cache tests
+    settingsScreen.test.tsx     # Settings screen multi-tenant tests
 ```
 
 ---
@@ -466,6 +487,19 @@ A second 7-step wizard for the Service Agreement packet, running alongside the e
 - 100 new tests (587 total across 43 files)
 - 3 commits: f314c11 (Phase 1+2, +2377 lines), a2d6657 (Phase 3, +1182 lines), 3b5bef0 (Phase 4, +1036 lines)
 - Total: ~4,595 new lines of code
+
+### Sprint 23 — Multi-Tenant P1: Branding + Config + Submit (COMPLETE)
+- EPIC-23 P1 stories implemented: multi-tenant branding, tenant config, admin portal, org setup, submit flow
+- BrandingEditor: per-org logo, colors, company name stored in Supabase tenant_config
+- TenantConfigEditor: 3-layer config resolution (Netlify remote → Supabase tenant → Local IndexedDB)
+- AdminPortal: org CRUD, user management, super_admin gate via Netlify Function
+- OrgSetupScreen: first-run onboarding for users without org assignment
+- Real submit flow: draft→submitted status transition, re-submit protection, Supabase upsert
+- Draft ID migration: one-time draft-xxx→UUID for Supabase compatibility
+- PDF branding: dynamic logo/colors from tenant config
+- E2E test infrastructure: auth-bypass fixture v7, Supabase env var bypass, Settings admin gate updates
+- 239 new tests (826 total across 53 files), 142 E2E tests across 10 browser/device projects
+- Go-Live Audit v10: 0 blockers
 
 ---
 

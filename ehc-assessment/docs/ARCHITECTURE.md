@@ -112,6 +112,13 @@ flowchart TD
         SCW["ServiceContractWizard<br/>(7 steps)"]
         DM["DraftManager<br/>(search + filters)"]
         Settings["SettingsScreen<br/>(6 sections)"]
+        Admin["AdminPortal<br/>(org/user CRUD)"]
+        OrgSetup["OrgSetupScreen<br/>(first-run onboarding)"]
+    end
+
+    subgraph TenantConfig ["Tenant Configuration"]
+        BE["BrandingEditor<br/>(logo, colors, name)"]
+        TCE["TenantConfigEditor<br/>(feature flags)"]
     end
 
     subgraph WizardInternals ["Wizard Internals"]
@@ -166,6 +173,7 @@ flowchart TD
         H10["useSupabaseDrafts"]
         H11["useDraftLock"]
         H12["useSheetsSync"]
+        H13["useTenantConfig"]
     end
 
     App --> Login
@@ -174,6 +182,10 @@ flowchart TD
     App --> SCW
     App --> DM
     App --> Settings
+    App --> Admin
+    App --> OrgSetup
+    Admin --> BE
+    Admin --> TCE
 
     AW --> WS
     AW --> EB
@@ -867,10 +879,20 @@ erDiagram
         timestamptz updated_at
     }
 
+    TENANT_CONFIG {
+        uuid id PK
+        uuid org_id FK UK
+        jsonb branding "logo, colors, company name"
+        jsonb feature_flags "per-org feature toggles"
+        jsonb auth_settings "per-org auth config"
+        timestamptz updated_at
+    }
+
     ORGANIZATIONS ||--o{ PROFILES : "org_id"
     ORGANIZATIONS ||--o{ DRAFTS : "org_id"
     ORGANIZATIONS ||--o{ AUDIT_LOGS : "org_id"
     ORGANIZATIONS ||--|| APP_CONFIG : "org_id"
+    ORGANIZATIONS ||--|| TENANT_CONFIG : "org_id"
     PROFILES ||--o{ DRAFTS : "user_id"
 ```
 
@@ -893,4 +915,4 @@ erDiagram
 
 ---
 
-*Generated 2026-02-20 — Session 41: Supabase multi-device sync documentation*
+*Updated 2026-02-20 — Session 45: Multi-tenant branding, tenant config, admin portal, submit flow*

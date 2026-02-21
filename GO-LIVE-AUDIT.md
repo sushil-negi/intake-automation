@@ -3,7 +3,7 @@
 **Date:** 2026-02-12
 **Auditor:** Claude (Session 25 — 4 parallel deep-dive agents)
 **App Version:** Post-Sprint 20 (238 unit tests, 16 E2E tests, TypeScript clean)
-**Overall Verdict: READY** — v2: All 27 findings resolved. v3: All 13 findings resolved. v4: All 11 findings resolved. v5: 2 warnings resolved. v6: Automated WCAG testing added. v7: Final 4-agent deep audit confirms 0 BLOCKERS, 6 SHOULD-FIX. v8: Email hardening + draft duplicate fix. **v9: Supabase multi-device sync. 587 tests. 0 BLOCKERS.**
+**Overall Verdict: READY** — v2: All 27 findings resolved. v3: All 13 findings resolved. v4: All 11 findings resolved. v5: 2 warnings resolved. v6: Automated WCAG testing added. v7: Final 4-agent deep audit confirms 0 BLOCKERS, 6 SHOULD-FIX. v8: Email hardening + draft duplicate fix. v9: Supabase multi-device sync. **v10: Multi-tenant branding, tenant config, E2E infrastructure fixes. 826 unit + 142 E2E tests. 0 BLOCKERS.**
 
 ---
 
@@ -691,3 +691,96 @@ E2E Tests:   npx playwright test        → 16/16 PASS (11 smoke + 5 accessibili
 5. **NEW:** Supabase free tier has no HIPAA BAA — same approach as Google Sheets. Team plan ($599/mo) available for formal compliance. PHI is encrypted at rest by Supabase (AES-256) and in transit (TLS).
 
 *v9 generated 2026-02-20 — Sessions 39-41: Supabase multi-device sync (Phases 1-4)*
+
+---
+
+## Go-Live Audit v10 (Sessions 42-45)
+
+**Date:** 2026-02-20
+**Scope:** Multi-tenant branding, tenant config, submit flow, draft ID migration, E2E infrastructure, full cross-browser validation
+**Status:** **0 BLOCKERS. APP REMAINS GO-LIVE READY.**
+
+### What Was Added Since v9
+
+| Feature | Files | Description |
+|---------|-------|-------------|
+| **Multi-Tenant Branding** | `BrandingEditor.tsx`, `types/branding.ts`, `brandingHelpers.ts` | Admin UI to configure org-level branding (logo, colors, company name). Stored in Supabase `tenant_config`. |
+| **Tenant Config System** | `TenantConfigEditor.tsx`, `types/tenantConfig.ts`, `tenantConfigDefaults.ts`, `useTenantConfig.ts` | 3-layer config resolution: Netlify remote → Supabase tenant → Local IndexedDB. Feature flags, branding, auth settings per org. |
+| **Remote Config** | `remoteConfig.ts`, `types/remoteConfig.ts` | Netlify-hosted global config with local cache + 5-min TTL. Environment-specific overrides. |
+| **Admin Portal** | `AdminPortal.tsx` | Unified admin UI for org management, tenant config, branding. Role-gated. |
+| **Org Setup Screen** | `OrgSetupScreen.tsx` | First-run onboarding flow for new organizations. |
+| **Real Submit Flow** | `ReviewSubmit.tsx`, `ContractReviewSubmit.tsx`, `AssessmentWizard.tsx`, `ServiceContractWizard.tsx` | End-to-end submit with Supabase upsert, status transition (draft→submitted), re-submit protection. |
+| **Draft ID Migration** | `draftIdMigration.ts` | One-time migration of `draft-xxx` IDs to UUIDs for Supabase compatibility. |
+| **Supabase Schema v3** | `schema-v3-tenant-config.sql` | Postgres schema for tenant config table with RLS policies. |
+| **PDF Branding** | `pdfHeader.ts`, `pdfStyles.ts`, `generatePdf.ts`, `generateContractPdf.ts` | Dynamic logo/colors in PDF output from tenant branding config. |
+
+### E2E Test Infrastructure Fixes
+
+Three issues were discovered and fixed that were preventing E2E tests from running:
+
+| Issue | Root Cause | Fix |
+|-------|-----------|-----|
+| **IndexedDB VersionError** | `auth-bypass.ts` fixture had `DB_VERSION=4` but app uses `DB_VERSION=7` | Updated to `DB_VERSION=7`, added missing `emailConfig` and `supabaseSyncQueue` stores |
+| **Supabase auth blocking E2E** | `.env` Supabase vars baked into prod build → app waits for Supabase auth → shows login screen | Build E2E without Supabase env vars: `VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite build` |
+| **Settings admin gate** | v4-3 admin gate hides sections for non-admin users; E2E tests expected "Google Sheets Connection" | Updated 4 E2E test files to check for "Activity Log" instead |
+
+### Audit Results
+
+| Dimension | Agent | Status | Details |
+|-----------|-------|--------|---------|
+| **Security** | Deep-dive agent | **0 blockers, 0 high, 0 medium, 0 low** | Secrets management clean, XSS prevention intact, injection safe, auth flow secure, encryption solid, CSP maintained, all new files (BrandingEditor, TenantConfig, AdminPortal, OrgSetup) follow established patterns |
+| **Code Quality** | Deep-dive agent | **0 blockers** | 4 justified `as any` (jsPDF/SignaturePad), 13 eslint-disable (10 justified), 3 large components (SettingsScreen 2067 LOC, AdminPortal 712, BrandingEditor 452) — none blocking |
+| **TypeScript** | `tsc --noEmit` | **CLEAN** | 0 errors |
+| **Unit Tests** | `vitest run` | **826/826 PASS** | 53 test files (+239 tests since v9) |
+| **E2E Tests** | `playwright test` | **142/142 PASS** | 10 projects × 5 spec files. All browsers + devices + dark mode. |
+| **Production Build** | `vite build` | **SUCCESS** | 1746 KiB precache. Main chunk 655KB (over 500KB advisory). Bundle: react(12KB), pdf(417KB), zip(97KB), validation(59KB), supabase(171KB), index(655KB). |
+| **npm audit** | `npm audit` | **34 vulns (all dev/transitive)** | netlify-cli (25), eslint/minimatch (5), jsPDF (3), postcss (1). No direct production vulnerabilities. |
+
+### E2E Cross-Browser Coverage
+
+| Project | Tests | Status |
+|---------|-------|--------|
+| desktop-chromium | 35 | PASS |
+| desktop-firefox | 11 | PASS |
+| desktop-webkit | 11 | PASS |
+| mobile-chrome | 16 | PASS |
+| mobile-safari | 16 | PASS |
+| tablet-portrait | 16 | PASS |
+| tablet-landscape | 16 | PASS |
+| dark-desktop | 11 | PASS |
+| dark-mobile | 10 | PASS |
+| dark-tablet | 10 | PASS |
+| **Total** | **142** | **ALL PASS** |
+
+### npm Audit Detail
+
+All 34 vulnerabilities are in dev/build/transitive dependencies — none affect the production bundle:
+
+| Package | Vulns | Category | Impact |
+|---------|-------|----------|--------|
+| netlify-cli (dev) | 25 | Dev tooling | Not in bundle |
+| eslint/minimatch (dev) | 5 | Dev tooling | Not in bundle |
+| jsPDF (transitive) | 3 | PDF generation | Lazy-loaded chunk; no user-controlled input to vulnerable paths |
+| postcss (dev) | 1 | Build tooling | Not in bundle |
+
+### v10 Verification
+
+```
+TypeScript:  npx tsc --noEmit           → CLEAN (0 errors)
+Unit Tests:  npx vitest run             → 826/826 PASS (53 files)
+E2E Tests:   npx playwright test        → 142/142 PASS (10 projects, 5 spec files)
+Prod Build:  npx vite build             → SUCCESS (1746 KiB precache)
+npm audit:   34 vulnerabilities (all dev/transitive — 0 direct production)
+```
+
+### Known Limitations (Updated)
+
+1. No BAA with Google for Sheets sync — mitigated by PHI masking via `sanitizeForSync()`
+2. Session token in plaintext sessionStorage — mitigated by CSP + 8hr expiry + tab-scoped
+3. No external error monitoring (Sentry/Datadog) — mitigated by audit log + global error handlers
+4. `style-src 'unsafe-inline'` in CSP — required by Tailwind v4 runtime
+5. Supabase free tier has no HIPAA BAA — same approach as Google Sheets. Team plan ($599/mo) available for formal compliance.
+6. **NEW:** Main bundle 655KB exceeds 500KB advisory — mitigated by existing code splitting (pdf/zip/validation/supabase chunks lazy-loaded). Core index chunk includes React, Tailwind, form logic.
+7. **NEW:** npm audit shows 34 dev/transitive vulnerabilities — none in production bundle. Monitor for upstream fixes.
+
+*v10 generated 2026-02-20 — Sessions 42-45: Multi-tenant branding, tenant config, submit flow, draft ID migration, E2E infrastructure fixes, full cross-browser validation*
