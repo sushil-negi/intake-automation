@@ -14,7 +14,7 @@ import { CustomerPacket } from './forms/contract/CustomerPacket';
 import { ContractReviewSubmit } from './forms/contract/ContractReviewSubmit';
 import { DraftManager } from './DraftManager';
 import { LoadingSpinner } from './ui/LoadingSpinner';
-import { saveDraft, type DraftRecord } from '../utils/db';
+import { saveDraft, getDraft, type DraftRecord } from '../utils/db';
 import { logAudit } from '../utils/auditLog';
 import { useDraftLock } from '../hooks/useDraftLock';
 import { useSupabaseSync } from '../hooks/useSupabaseSync';
@@ -227,7 +227,7 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
     ].filter(Boolean).join(' ');
 
     const isUpdate = !!currentDraftId;
-    const id = currentDraftId || `draft-${Date.now()}`;
+    const id = currentDraftId || crypto.randomUUID();
     const draft: DraftRecord = {
       id,
       clientName: customerName || 'Unnamed Client',
@@ -257,7 +257,12 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
       data.serviceAgreement.customerInfo.lastName,
     ].filter(Boolean).join(' ');
 
-    const id = currentDraftId || `draft-${Date.now()}`;
+    const id = currentDraftId || crypto.randomUUID();
+    // Fetch existing draft to determine version (re-submit increments)
+    const existing = currentDraftId ? await getDraft(currentDraftId).catch(() => undefined) : undefined;
+    const prevVersion = existing?.version ?? (existing?.status === 'submitted' ? 1 : 0);
+    const nextVersion = prevVersion + 1;
+    const isResubmit = existing?.status === 'submitted';
     const draft: DraftRecord = {
       id,
       clientName: customerName || 'Unnamed Client',
@@ -267,9 +272,10 @@ export function ServiceContractWizard({ onGoHome, prefillData, resumeStep, draft
       status: 'submitted',
       currentStep: wizard.currentStep,
       linkedAssessmentId,
+      version: nextVersion,
     };
     await saveDraft(draft);
-    logAudit('contract_submitted', id, draft.clientName);
+    logAudit(isResubmit ? 'contract_resubmitted' : 'contract_submitted', id, isResubmit ? `${draft.clientName} — v${nextVersion} (updated from v${prevVersion})` : draft.clientName);
     scheduleDraftSync(draft);
     await flushSync();
     await releaseLock();

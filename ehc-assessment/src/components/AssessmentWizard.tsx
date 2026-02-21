@@ -17,7 +17,7 @@ import { ReviewSubmit } from './forms/ReviewSubmit';
 import { DraftManager } from './DraftManager';
 import { StaffNoteField } from './ui/StaffNoteField';
 import { LoadingSpinner } from './ui/LoadingSpinner';
-import { saveDraft, type DraftRecord } from '../utils/db';
+import { saveDraft, getDraft, type DraftRecord } from '../utils/db';
 import { logAudit } from '../utils/auditLog';
 import { useDraftLock } from '../hooks/useDraftLock';
 import { useSupabaseSync } from '../hooks/useSupabaseSync';
@@ -255,7 +255,7 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
   const [draftSaveMessage, setDraftSaveMessage] = useState('');
   const handleSaveDraft = useCallback(async () => {
     const isUpdate = !!currentDraftId;
-    const id = currentDraftId || `draft-${Date.now()}`;
+    const id = currentDraftId || crypto.randomUUID();
     const draft: DraftRecord = {
       id,
       clientName: data.clientHelpList.clientName || 'Unnamed Client',
@@ -279,8 +279,13 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
   }, [data, wizard.currentStep, currentDraftId, scheduleDraftSync]);
 
   const handleSubmit = useCallback(async () => {
-    const id = currentDraftId || `draft-${Date.now()}`;
+    const id = currentDraftId || crypto.randomUUID();
     const clientName = data.clientHelpList.clientName || 'Unnamed Client';
+    // Fetch existing draft to determine version (re-submit increments)
+    const existing = currentDraftId ? await getDraft(currentDraftId).catch(() => undefined) : undefined;
+    const prevVersion = existing?.version ?? (existing?.status === 'submitted' ? 1 : 0);
+    const nextVersion = prevVersion + 1;
+    const isResubmit = existing?.status === 'submitted';
     const draft: DraftRecord = {
       id,
       clientName,
@@ -289,9 +294,10 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
       lastModified: new Date().toISOString(),
       status: 'submitted',
       currentStep: wizard.currentStep,
+      version: nextVersion,
     };
     await saveDraft(draft);
-    logAudit('assessment_submitted', id, clientName);
+    logAudit(isResubmit ? 'assessment_resubmitted' : 'assessment_submitted', id, isResubmit ? `${clientName} — v${nextVersion} (updated from v${prevVersion})` : clientName);
     scheduleDraftSync(draft);
     await flushSync();
     await releaseLock();

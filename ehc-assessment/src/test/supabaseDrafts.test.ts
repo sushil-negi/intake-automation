@@ -7,6 +7,8 @@ import { INITIAL_DATA } from '../utils/initialData';
 // The LAST call in each chain must return a promise-like { data, error }.
 // We use `mockReturnValue` on a `resolveWith` holder to control the terminal result.
 
+const VALID_UUID = '00000000-0000-4000-a000-000000000001';
+
 let terminalResult: { data: unknown; error: unknown } = { data: null, error: null };
 const mockRpc = vi.fn();
 
@@ -178,21 +180,27 @@ describe('fetchRemoteDrafts', () => {
 describe('fetchRemoteDraft', () => {
   it('returns null when Supabase not configured', async () => {
     vi.mocked(isSupabaseConfigured).mockReturnValue(false);
+    const result = await fetchRemoteDraft(VALID_UUID);
+    expect(result).toBeNull();
+  });
+
+  it('returns null for non-UUID draft IDs', async () => {
     const result = await fetchRemoteDraft('draft-123');
     expect(result).toBeNull();
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('fetches single draft by ID', async () => {
     const row = makeDraftRow();
     terminalResult = { data: row, error: null };
-    const result = await fetchRemoteDraft('draft-123');
+    const result = await fetchRemoteDraft(VALID_UUID);
     expect(mockFrom).toHaveBeenCalledWith('drafts');
     expect(result).toEqual(row);
   });
 
   it('returns null when draft not found', async () => {
     terminalResult = { data: null, error: null };
-    const result = await fetchRemoteDraft('nonexistent');
+    const result = await fetchRemoteDraft(VALID_UUID);
     expect(result).toBeNull();
   });
 });
@@ -200,20 +208,26 @@ describe('fetchRemoteDraft', () => {
 describe('deleteRemoteDraft', () => {
   it('returns false when Supabase not configured', async () => {
     vi.mocked(isSupabaseConfigured).mockReturnValue(false);
+    const result = await deleteRemoteDraft(VALID_UUID);
+    expect(result).toBe(false);
+  });
+
+  it('returns false for non-UUID draft IDs', async () => {
     const result = await deleteRemoteDraft('draft-123');
     expect(result).toBe(false);
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('deletes draft and returns true', async () => {
     terminalResult = { data: null, error: null };
-    const result = await deleteRemoteDraft('draft-123');
+    const result = await deleteRemoteDraft(VALID_UUID);
     expect(mockFrom).toHaveBeenCalledWith('drafts');
     expect(result).toBe(true);
   });
 
   it('returns false on error', async () => {
     terminalResult = { data: null, error: { message: 'RLS violation' } };
-    const result = await deleteRemoteDraft('draft-123');
+    const result = await deleteRemoteDraft(VALID_UUID);
     expect(result).toBe(false);
   });
 });
@@ -223,15 +237,21 @@ describe('deleteRemoteDraft', () => {
 describe('acquireDraftLock', () => {
   it('returns true when Supabase not configured (offline-only mode)', async () => {
     vi.mocked(isSupabaseConfigured).mockReturnValue(false);
+    const result = await acquireDraftLock(VALID_UUID, 'user-1');
+    expect(result).toBe(true);
+  });
+
+  it('returns true without calling RPC for non-UUID draft IDs', async () => {
     const result = await acquireDraftLock('draft-123', 'user-1');
     expect(result).toBe(true);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('calls RPC acquire_draft_lock with correct params', async () => {
     mockRpc.mockResolvedValue({ data: true, error: null });
-    const result = await acquireDraftLock('draft-123', 'user-1');
+    const result = await acquireDraftLock(VALID_UUID, 'user-1');
     expect(mockRpc).toHaveBeenCalledWith('acquire_draft_lock', {
-      p_draft_id: 'draft-123',
+      p_draft_id: VALID_UUID,
       p_user_id: 'user-1',
       p_device_id: 'device-test-123',
     });
@@ -240,29 +260,33 @@ describe('acquireDraftLock', () => {
 
   it('returns false when lock already held', async () => {
     mockRpc.mockResolvedValue({ data: false, error: null });
-    const result = await acquireDraftLock('draft-123', 'user-1');
+    const result = await acquireDraftLock(VALID_UUID, 'user-1');
     expect(result).toBe(false);
   });
 
-  it('returns false on RPC error', async () => {
+  it('throws on RPC error', async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'RPC failed' } });
-    const result = await acquireDraftLock('draft-123', 'user-1');
-    expect(result).toBe(false);
+    await expect(acquireDraftLock(VALID_UUID, 'user-1')).rejects.toThrow('RPC failed');
   });
 });
 
 describe('releaseDraftLock', () => {
   it('does nothing when Supabase not configured', async () => {
     vi.mocked(isSupabaseConfigured).mockReturnValue(false);
+    await releaseDraftLock(VALID_UUID, 'user-1');
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('skips RPC for non-UUID draft IDs', async () => {
     await releaseDraftLock('draft-123', 'user-1');
     expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('calls RPC release_draft_lock', async () => {
     mockRpc.mockResolvedValue({ error: null });
-    await releaseDraftLock('draft-123', 'user-1');
+    await releaseDraftLock(VALID_UUID, 'user-1');
     expect(mockRpc).toHaveBeenCalledWith('release_draft_lock', {
-      p_draft_id: 'draft-123',
+      p_draft_id: VALID_UUID,
       p_user_id: 'user-1',
     });
   });
@@ -271,6 +295,11 @@ describe('releaseDraftLock', () => {
 describe('getDraftLockInfo', () => {
   it('returns null when Supabase not configured', async () => {
     vi.mocked(isSupabaseConfigured).mockReturnValue(false);
+    const result = await getDraftLockInfo(VALID_UUID);
+    expect(result).toBeNull();
+  });
+
+  it('returns null for non-UUID draft IDs', async () => {
     const result = await getDraftLockInfo('draft-123');
     expect(result).toBeNull();
   });
@@ -280,7 +309,7 @@ describe('getDraftLockInfo', () => {
       data: { locked_by: null, locked_at: null, lock_device_id: null },
       error: null,
     };
-    const result = await getDraftLockInfo('draft-123');
+    const result = await getDraftLockInfo(VALID_UUID);
     expect(result).toBeNull();
   });
 
@@ -293,7 +322,7 @@ describe('getDraftLockInfo', () => {
       },
       error: null,
     };
-    const result = await getDraftLockInfo('draft-123');
+    const result = await getDraftLockInfo(VALID_UUID);
     expect(result).toEqual({
       lockedBy: 'user-2',
       lockedAt: '2024-01-01T10:00:00Z',

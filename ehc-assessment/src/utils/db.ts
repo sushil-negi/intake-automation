@@ -34,6 +34,8 @@ export interface DraftRecord {
   linkedAssessmentId?: string;
   /** Supabase remote version number for optimistic concurrency. */
   remoteVersion?: number;
+  /** Local submission version — incremented each time the record is re-submitted. */
+  version?: number;
 }
 
 /** Internal stored form — data may be encrypted string or legacy plaintext object */

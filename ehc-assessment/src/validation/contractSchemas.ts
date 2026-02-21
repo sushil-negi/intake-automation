@@ -6,12 +6,20 @@ const consentCheckboxSchema = z.object({
   timestamp: z.string().min(1),
 });
 
+/** Optional yyyy-MM-dd date — empty string allowed, but partial values like "1980" are rejected */
+const optionalDateString = z.string().max(20).refine(
+  (v) => v === '' || /^\d{4}-\d{2}-\d{2}$/.test(v),
+  { message: 'Enter a complete date (yyyy-MM-dd)' },
+).optional();
+
 // Step 0: Service Agreement — require customer name, phone, and client/representative signature
 export const serviceAgreementSchema = z.object({
   customerInfo: z.object({
     firstName: z.string().min(1, 'First name is required').max(200),
     lastName: z.string().min(1, 'Last name is required').max(200),
     phone: z.string().min(1, 'Phone number is required').max(30),
+    dateOfBirth: optionalDateString,
+    startOfCareDate: optionalDateString,
   }).passthrough(),
   clientSignature: z.string().min(1, 'Client or representative signature is required').max(200000),
 }).passthrough();

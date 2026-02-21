@@ -12,6 +12,7 @@ import { mapAssessmentToContract } from './utils/prefill';
 import { saveDraft, getSheetsConfig, saveSheetsConfig, purgeOldDrafts } from './utils/db';
 import { purgeOldLogs, setAuditDualWriteContext } from './utils/auditLog';
 import { googleSignOut } from './utils/googleAuth';
+import { migrateNonUuidDraftIds } from './utils/draftIdMigration';
 import { writeEncryptedLocalStorage } from './utils/crypto';
 import { useIdleTimeout } from './hooks/useIdleTimeout';
 import { useDarkMode } from './hooks/useDarkMode';
@@ -211,13 +212,26 @@ function App() {
   }, [view.screen]);
 
   // S5: Data retention — auto-purge drafts and audit logs older than 90 days
+  // + one-time draft UUID migration (MUST complete before Dashboard renders)
+  const [dbReady, setDbReady] = useState(false);
   useEffect(() => {
-    purgeOldDrafts(90)
-      .then(count => { if (count) logAudit('data_purge', 'drafts', `Purged ${count} drafts older than 90 days`); })
-      .catch(() => {});
-    purgeOldLogs(90)
-      .then(count => { if (count) logAudit('data_purge', 'auditLogs', `Purged ${count} audit logs older than 90 days`); })
-      .catch(() => {});
+    (async () => {
+      try {
+        // Migration first — blocks rendering until complete to prevent
+        // race condition with Dashboard auto-rescue creating duplicates.
+        await migrateNonUuidDraftIds();
+      } catch (err) {
+        logger.error('Draft ID migration failed:', err);
+      }
+      // Purge can run non-blocking after migration is done
+      purgeOldDrafts(90)
+        .then(count => { if (count) logAudit('data_purge', 'drafts', `Purged ${count} drafts older than 90 days`); })
+        .catch(() => {});
+      purgeOldLogs(90)
+        .then(count => { if (count) logAudit('data_purge', 'auditLogs', `Purged ${count} audit logs older than 90 days`); })
+        .catch(() => {});
+      setDbReady(true);
+    })();
   }, []);
 
   // I1: IndexedDB quota monitoring — warn at 80% usage
@@ -231,8 +245,8 @@ function App() {
     }
   }, []);
 
-  // Show loading while checking auth config or Supabase session
-  if (authLoading || (supabaseConfigured && supabaseLoading)) {
+  // Show loading while checking auth config, Supabase session, or DB migration
+  if (authLoading || !dbReady || (supabaseConfigured && supabaseLoading)) {
     return (
       <div className="min-h-screen bg-sky-50/60 dark:bg-slate-900 flex items-center justify-center">
         <LoadingSpinner message="Loading..." />

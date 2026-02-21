@@ -12,6 +12,9 @@ import { logger } from './logger';
 import type { DraftRow, DraftInsert, DraftUpdate } from '../types/supabase';
 import type { DraftRecord, DraftType } from './db';
 
+/** UUID v4 format check — Postgres `drafts.id` is UUID type; non-UUID IDs cause cast errors. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Convert a Supabase DraftRow into the local DraftRecord shape. */
@@ -94,6 +97,7 @@ export async function fetchRemoteDraft(id: string): Promise<DraftRow | null> {
   if (!isSupabaseConfigured()) return null;
   const sb = getSupabaseClient();
   if (!sb) return null;
+  if (!UUID_RE.test(id)) return null;
 
   const { data, error } = await sb
     .from('drafts')
@@ -127,6 +131,7 @@ export async function upsertRemoteDraft(
   if (!isSupabaseConfigured()) return null;
   const sb = getSupabaseClient();
   if (!sb) return null;
+  if (!UUID_RE.test(draft.id)) return null;
 
   // Check if the draft already exists remotely
   const existing = await fetchRemoteDraft(draft.id);
@@ -182,6 +187,7 @@ export async function deleteRemoteDraft(id: string): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   const sb = getSupabaseClient();
   if (!sb) return false;
+  if (!UUID_RE.test(id)) return false;
 
   const { error } = await sb
     .from('drafts')
@@ -200,6 +206,7 @@ export async function deleteRemoteDraft(id: string): Promise<boolean> {
 /**
  * Acquire an exclusive lock on a draft.
  * Returns `true` if the lock was acquired, `false` if another user holds it.
+ * Throws on RPC errors so callers can handle optimistically.
  */
 export async function acquireDraftLock(
   draftId: string,
@@ -208,6 +215,9 @@ export async function acquireDraftLock(
   if (!isSupabaseConfigured()) return true; // no lock needed if offline-only
   const sb = getSupabaseClient();
   if (!sb) return true;
+  // Local-only draft IDs (e.g. "draft-1708xxx") are not valid UUIDs
+  // and can't exist in Supabase — skip locking entirely
+  if (!UUID_RE.test(draftId)) return true;
 
   const deviceId = getDeviceId();
   const { data, error } = await sb.rpc('acquire_draft_lock', {
@@ -218,7 +228,7 @@ export async function acquireDraftLock(
 
   if (error) {
     logger.error('[SupabaseDrafts] acquireDraftLock failed:', error.message);
-    return false;
+    throw new Error(error.message);
   }
   return data as boolean;
 }
@@ -233,6 +243,7 @@ export async function releaseDraftLock(
   if (!isSupabaseConfigured()) return;
   const sb = getSupabaseClient();
   if (!sb) return;
+  if (!UUID_RE.test(draftId)) return;
 
   const { error } = await sb.rpc('release_draft_lock', {
     p_draft_id: draftId,
@@ -255,6 +266,7 @@ export async function getDraftLockInfo(draftId: string): Promise<{
   if (!isSupabaseConfigured()) return null;
   const sb = getSupabaseClient();
   if (!sb) return null;
+  if (!UUID_RE.test(draftId)) return null;
 
   const { data, error } = await sb
     .from('drafts')

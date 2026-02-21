@@ -57,8 +57,10 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
   const [localDrafts, setLocalDrafts] = useState<DraftRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [confirmEdit, setConfirmEdit] = useState<string | null>(null);
   const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
   const [exportMenuId, setExportMenuId] = useState<string | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'submitted'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'assessment' | 'serviceContract'>('all');
@@ -66,6 +68,18 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
   const [importError, setImportError] = useState('');
   const [zipExporting, setZipExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Close export menu on click outside
+  useEffect(() => {
+    if (!exportMenuId) return;
+    const handleClick = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [exportMenuId]);
 
   // Real-time drafts from Supabase (when configured)
   const supabaseConfigured = isSupabaseConfigured();
@@ -259,7 +273,7 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
 
   const handleSaveCurrentAsDraft = async () => {
     if (!currentData) return;
-    const id = `draft-${Date.now()}`;
+    const id = crypto.randomUUID();
     const draft: DraftRecord = {
       id,
       clientName: currentData.clientHelpList.clientName || 'Unnamed Client',
@@ -283,6 +297,12 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
   const handleResume = (draft: DraftRecord) => {
     logAudit('draft_resume', draft.id, draft.clientName);
     onResumeDraft(draft);
+  };
+
+  const handleEditSubmitted = (draft: DraftRecord) => {
+    logAudit('submitted_edit', draft.id, `${draft.clientName} — editing submitted v${draft.version ?? 1}`);
+    // Reopen as draft so the wizard treats it as editable
+    onResumeDraft({ ...draft, status: 'draft' });
   };
 
   // Filter drafts by search query, status, and type
@@ -334,7 +354,7 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
               ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
               : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
           }`}>
-            {draft.status === 'submitted' ? 'Submitted' : 'Draft'}
+            {draft.status === 'submitted' ? `Submitted${(draft.version ?? 1) > 1 ? ` (v${draft.version})` : ''}` : 'Draft'}
           </span>
           {draft.currentStep != null && (
             <span className="text-xs text-gray-500 dark:text-slate-400">
@@ -344,7 +364,7 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
         </div>
       </div>
       <div className="flex flex-wrap gap-2 sm:ml-3">
-        <div className="relative">
+        <div className="relative" ref={exportMenuId === draft.id ? exportMenuRef : undefined}>
           <div className="flex">
             <button
               type="button"
@@ -370,7 +390,7 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
             <div role="menu" className="absolute right-0 mt-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg z-20 min-w-[100px]">
               <button
                 type="button"
-                onClick={() => handleExportData(draft, 'csv')}
+                onClick={() => { handleExportData(draft, 'csv'); setExportMenuId(null); }}
                 role="menuitem"
                 className="block w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"
               >
@@ -378,7 +398,7 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
               </button>
               <button
                 type="button"
-                onClick={() => handleExportData(draft, 'json')}
+                onClick={() => { handleExportData(draft, 'json'); setExportMenuId(null); }}
                 role="menuitem"
                 className="block w-full text-left px-3 py-2 text-xs text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"
               >
@@ -421,14 +441,46 @@ export function DraftManager({ onResumeDraft, onNewAssessment, currentData, curr
             )}
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => handleResume(draft)}
-          aria-label={`Resume ${draft.type === 'serviceContract' ? 'contract' : 'assessment'} for ${draft.clientName || 'unnamed client'}`}
-          className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-800/50 transition-all min-h-[44px]"
-        >
-          Resume
-        </button>
+        {draft.status === 'submitted' ? (
+          confirmEdit === draft.id ? (
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => { setConfirmEdit(null); handleEditSubmitted(draft); }}
+                aria-label={`Confirm edit submitted ${draft.clientName || 'draft'}`}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-all min-h-[44px]"
+              >
+                Yes, Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmEdit(null)}
+                aria-label="Cancel edit"
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 transition-all min-h-[44px]"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmEdit(draft.id)}
+              aria-label={`Edit submitted ${draft.type === 'serviceContract' ? 'contract' : 'assessment'} for ${draft.clientName || 'unnamed client'}`}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-amber-300 text-amber-600 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-all min-h-[44px]"
+            >
+              Edit
+            </button>
+          )
+        ) : (
+          <button
+            type="button"
+            onClick={() => handleResume(draft)}
+            aria-label={`Resume ${draft.type === 'serviceContract' ? 'contract' : 'assessment'} for ${draft.clientName || 'unnamed client'}`}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-800/50 transition-all min-h-[44px]"
+          >
+            Resume
+          </button>
+        )}
         {confirmDelete === draft.id ? (
           <div className="flex gap-1">
             <button

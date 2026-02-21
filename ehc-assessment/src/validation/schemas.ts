@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
+/** yyyy-MM-dd format — required for HTML date inputs and Supabase storage */
+const dateString = z.string()
+  .min(1, 'Date is required')
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter a complete date (yyyy-MM-dd)');
+
 // Step 0: Client Help List — require client name and DOB
 export const clientHelpListSchema = z.object({
   clientName: z.string().min(1, 'Client name is required').max(500, 'Name is too long'),
-  dateOfBirth: z.string().min(1, 'Date of birth is required').max(20, 'Invalid date'),
+  dateOfBirth: dateString,
 }).passthrough();
 
 // Step 1: Client History — require assessment reason

@@ -46,6 +46,12 @@ export type AuditAction =
   | 'data_purge'
   | 'email_sent'
   | 'email_failed'
+  | 'assessment_submitted'
+  | 'assessment_resubmitted'
+  | 'contract_submitted'
+  | 'contract_resubmitted'
+  | 'submitted_edit'
+  | 'draft_migrated'
   | 'error';
 
 export interface AuditLogEntry {
