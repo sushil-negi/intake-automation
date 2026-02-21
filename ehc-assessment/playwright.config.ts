@@ -102,7 +102,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npx vite preview --port 4173',
+    // Build without Supabase env vars to avoid real auth calls + loading gates in E2E,
+    // then serve the production build.
+    command: 'VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npx vite build && npx vite preview --port 4173',
     port: 4173,
     reuseExistingServer: !process.env.CI,
   },

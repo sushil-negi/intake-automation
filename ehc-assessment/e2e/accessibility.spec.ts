@@ -70,7 +70,8 @@ test.describe('Accessibility: Settings', () => {
   test('Settings screen has no violations', async ({ page }) => {
     await page.goto('/');
     await page.click('text=Admin / Settings');
-    await expect(page.locator('text=Google Sheets Connection')).toBeVisible();
+    // Non-admin users see restricted view with Activity Log
+    await expect(page.locator('text=Activity Log')).toBeVisible();
     await expectNoViolations(page);
   });
 });

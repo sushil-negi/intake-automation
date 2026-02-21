@@ -111,7 +111,7 @@ test.describe('Dark mode', () => {
   test('dark mode persists across navigation', async ({ page }) => {
     // Navigate to settings
     await page.click('text=Admin / Settings');
-    await expect(page.locator('text=Google Sheets Connection')).toBeVisible();
+    await expect(page.locator('text=Activity Log')).toBeVisible();
 
     // Verify dark class is still active
     const hasDarkClass = await page.evaluate(() =>

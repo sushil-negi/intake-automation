@@ -131,7 +131,7 @@ test.describe('Visual regression screenshots', () => {
     }
 
     await page.click('text=Admin / Settings');
-    await expect(page.locator('text=Google Sheets Connection')).toBeVisible();
+    await expect(page.locator('text=Activity Log')).toBeVisible();
 
     await page.waitForTimeout(500);
 
