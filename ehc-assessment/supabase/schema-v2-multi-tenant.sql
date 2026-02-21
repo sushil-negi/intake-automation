@@ -67,13 +67,13 @@ DECLARE
 BEGIN
   -- Check if a profile was pre-created via invite (has email but no auth id yet)
   SELECT id INTO v_existing_id
-  FROM profiles
+  FROM public.profiles
   WHERE email = NEW.email AND id != NEW.id
   LIMIT 1;
 
   IF v_existing_id IS NOT NULL THEN
     -- Update the pre-created profile: set id to auth.user id, fill metadata
-    UPDATE profiles
+    UPDATE public.profiles
     SET id = NEW.id,
         full_name = COALESCE(
           NEW.raw_user_meta_data->>'full_name',
@@ -86,13 +86,19 @@ BEGIN
           avatar_url
         ),
         updated_at = now()
-    WHERE email = NEW.email AND id = v_existing_id;
+    WHERE id = v_existing_id;
   END IF;
 
   -- If no pre-created profile exists, user will land in "no org" state.
   -- Super-admin assigns them via the admin portal.
 
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Log warning but never block user creation — profile linking can be
+    -- retried manually via admin portal or bootstrap SQL.
+    RAISE WARNING 'handle_new_user failed for %: %', NEW.email, SQLERRM;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

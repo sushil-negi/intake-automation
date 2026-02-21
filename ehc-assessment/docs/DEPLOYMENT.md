@@ -39,8 +39,8 @@ Dev and prod use **completely separate** Supabase projects — different databas
 
 | Component | Dev | Prod |
 |-----------|-----|------|
-| App URL | `localhost:5173` | `your-site.netlify.app` |
-| Supabase | `yfmuglqzdlrmpojuuzkd.supabase.co` | `dpeygehqahfskcxpwzru.supabase.co` |
+| App URL | `localhost:5173` | `customerintake.netlify.app` |
+| Supabase | Dev Supabase project | Prod Supabase project |
 | Database | Dev Postgres | Prod Postgres |
 | Auth users | Dev Google OAuth | Prod Google OAuth |
 | Functions | `localhost:9999` | Netlify Edge |
@@ -65,7 +65,12 @@ Creates: `organizations`, `profiles`, `drafts`, `audit_logs`, `app_config` table
 #### 1b. Multi-Tenant Migration
 Copy and run the entire contents of **`supabase/schema-v2-multi-tenant.sql`**.
 
-Adds: `is_active` column, `super_admin` role, nullable `org_id`, `is_super_admin()` function, fixed RLS policies (no circular deps), `handle_new_user()` trigger, `org_summary` view.
+Adds: `is_active` column, `super_admin` role, nullable `org_id`, `is_super_admin()` function, fixed RLS policies (no circular deps), `handle_new_user()` trigger (with `EXCEPTION` safety net), `org_summary` view.
+
+#### 1c. Tenant Config Migration
+Copy and run the entire contents of **`supabase/schema-v3-tenant-config.sql`**.
+
+Adds: `branding` config type, unique index on `app_config(org_id, config_type)`, super-admin RLS policies for cross-org config management.
 
 ### Step 2: Prod Supabase — Enable Google OAuth
 
@@ -80,6 +85,17 @@ Adds: `is_active` column, `super_admin` role, nullable `org_id`, `is_super_admin
    https://your-site.netlify.app
    ```
 
+### Step 2b: Prod Supabase — Set Auth URL Configuration
+
+**Supabase Dashboard → Authentication → URL Configuration:**
+
+| Setting | Value |
+|---------|-------|
+| **Site URL** | `https://customerintake.netlify.app` |
+| **Redirect URLs** | `https://customerintake.netlify.app/*` |
+
+> Without this, OAuth redirects to `localhost:5173` after login.
+
 ### Step 3: Netlify — Set Environment Variables
 
 **Netlify Dashboard → Site Settings → Environment Variables:**
@@ -93,6 +109,16 @@ Adds: `is_active` column, `super_admin` role, nullable `org_id`, `is_super_admin
 | `SUPABASE_SERVICE_ROLE_KEY` | Prod service_role key — server-side only (Netlify Functions) |
 
 > `VITE_*` vars are injected at build time. `SUPABASE_SERVICE_ROLE_KEY` is **never** exposed to the browser.
+>
+> **Important:** `VITE_*` vars are baked in at build time. After changing them, you must trigger a redeploy (Deploys → Trigger deploy → Clear cache and deploy site).
+
+#### Required — Secrets Scanner Bypass
+
+| Variable | Value |
+|----------|-------|
+| `SECRETS_SCAN_OMIT_KEYS` | `VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY` |
+
+> Netlify's secrets scanner flags `VITE_*` values in the JS bundle. This is expected — Vite intentionally inlines them. The Supabase anon key is designed to be public (RLS enforces security). This env var tells the scanner to skip these keys.
 
 #### Required — Email
 
@@ -215,15 +241,17 @@ Vite proxies `/api/*` → `localhost:9999` automatically (see `vite.config.ts`).
 
 Required `.env` in `ehc-assessment/` (gitignored):
 ```bash
-# Supabase (dev project)
-VITE_SUPABASE_URL=https://yfmuglqzdlrmpojuuzkd.supabase.co
-VITE_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+# Supabase (dev project — get values from Supabase Dashboard → Settings → API)
+VITE_SUPABASE_URL=https://<your-dev-project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<your-dev-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<your-dev-service-role-key>
 
 # Email (Resend)
-RESEND_API_KEY=...
+RESEND_API_KEY=<your-resend-api-key>
 EHC_EMAIL_FROM="EHC Assessments & Contracts <onboarding@resend.dev>"
 ```
+
+> **Never commit actual keys to docs or source.** See `.env.example` for the full variable list.
 
 ---
 
@@ -279,7 +307,11 @@ When adding new database changes:
 | Admin Portal JSON parse error | Functions server not running | Local: run `npm run dev:functions`. Prod: set `SUPABASE_SERVICE_ROLE_KEY` in Netlify |
 | "Admin API not configured" (503) | Missing env var | Add `SUPABASE_SERVICE_ROLE_KEY` + `VITE_SUPABASE_URL` to Netlify env vars |
 | Google OAuth redirect fails | Missing redirect URI | Add `https://<project>.supabase.co/auth/v1/callback` to Google Cloud Console |
+| OAuth redirects to `localhost:5173` | Supabase Site URL misconfigured | Set **Site URL** in prod Supabase → Authentication → URL Configuration to your Netlify URL |
+| "Database error saving new user" | `handle_new_user()` trigger error during auth transaction | Re-run `schema-v2-multi-tenant.sql` to get the version with `EXCEPTION` handler (see trigger function) |
+| Netlify build fails: "secrets detected" | Secrets scanner flags `VITE_*` values in JS bundle | Set `SECRETS_SCAN_OMIT_KEYS=VITE_SUPABASE_URL,VITE_SUPABASE_ANON_KEY` in Netlify env vars |
 | App loads but Supabase not working | Missing VITE_ vars | Set `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` in Netlify, redeploy |
+| App still uses dev Supabase after env var change | `VITE_*` vars baked in at build time | Must redeploy: Deploys → Trigger deploy → Clear cache and deploy site |
 | "Email service not configured" | Missing Resend key | Set `RESEND_API_KEY` in Netlify env vars |
 
 ---
