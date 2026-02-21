@@ -104,6 +104,10 @@ export interface AuditLogInsert {
 }
 
 // ── Supabase Database type map (for createClient<Database>) ────────────────
+//
+// IMPORTANT: The `public` schema must satisfy @supabase/supabase-js's
+// `GenericSchema` shape, which requires `Tables`, `Views`, and `Functions`.
+// Missing `Views` causes all table operations to resolve to `never`.
 
 export interface Database {
   public: {
@@ -112,26 +116,44 @@ export interface Database {
         Row: OrganizationRow;
         Insert: Omit<OrganizationRow, 'id' | 'created_at'> & { id?: string };
         Update: Partial<Omit<OrganizationRow, 'id' | 'created_at'>>;
+        Relationships: [];
       };
       profiles: {
         Row: ProfileRow;
         Insert: Omit<ProfileRow, 'created_at' | 'updated_at'>;
         Update: Partial<Omit<ProfileRow, 'id' | 'created_at'>>;
+        Relationships: [];
       };
       drafts: {
         Row: DraftRow;
         Insert: DraftInsert;
         Update: DraftUpdate;
+        Relationships: [];
       };
       audit_logs: {
         Row: AuditLogRow;
         Insert: AuditLogInsert;
         Update: never;
+        Relationships: [];
       };
       app_config: {
         Row: AppConfigRow;
         Insert: Omit<AppConfigRow, 'id' | 'updated_at'> & { id?: string };
         Update: Partial<Pick<AppConfigRow, 'config_data' | 'updated_by'>>;
+        Relationships: [];
+      };
+    };
+    Views: {
+      org_summary: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          is_active: boolean;
+          user_count: number;
+          created_at: string;
+        };
+        Relationships: [];
       };
     };
     Functions: {
@@ -148,5 +170,7 @@ export interface Database {
         Returns: void;
       };
     };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
