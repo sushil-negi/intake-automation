@@ -52,7 +52,7 @@ interface Props {
   supabaseOrgId?: string | null;
 }
 
-export function DraftManager({ onResumeDraft, onNewAssessment, currentData, currentStep, supabaseUserId, supabaseOrgId }: Props) {
+export function DraftManager({ onResumeDraft, onNewAssessment, currentData, currentStep, supabaseUserId: _supabaseUserId, supabaseOrgId }: Props) {
   const branding = useBranding();
   const [localDrafts, setLocalDrafts] = useState<DraftRecord[]>([]);
   const [loading, setLoading] = useState(true);

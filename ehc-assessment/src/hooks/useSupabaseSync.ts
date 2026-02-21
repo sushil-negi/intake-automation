@@ -21,7 +21,7 @@ import {
   getDraft,
   saveDraft,
 } from '../utils/db';
-import type { DraftRecord, DraftType } from '../utils/db';
+import type { DraftRecord } from '../utils/db';
 import type { DraftRow } from '../types/supabase';
 import { logger } from '../utils/logger';
 

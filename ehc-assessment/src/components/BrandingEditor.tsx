@@ -142,7 +142,7 @@ export function BrandingEditor({ tenantConfig, userRole, isSuperAdmin }: Brandin
         footerText,
         headerGradient: previewGradient,
       });
-      await tenantConfig.setConfig('branding', brandingToConfigData(config) as BrandingConfig);
+      await tenantConfig.setConfig('branding', brandingToConfigData(config));
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch {

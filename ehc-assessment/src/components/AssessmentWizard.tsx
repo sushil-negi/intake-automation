@@ -85,7 +85,7 @@ export function AssessmentWizard({ onGoHome, onContinueToContract, resumeStep, d
   // Remote sync — background push to Supabase with conflict detection
   const isOnline = useOnlineStatus();
   const {
-    status: syncStatus,
+    status: _syncStatus,
     conflictInfo,
     resolveConflict,
     dismissConflict,

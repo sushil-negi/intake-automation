@@ -31,7 +31,6 @@ import type { DraftRecord } from './utils/db';
 import type { AuthUser, AuthConfig } from './types/auth';
 import { DEFAULT_AUTH_CONFIG } from './types/auth';
 import type { ConfigSource, TenantOverrides } from './types/remoteConfig';
-import type { TenantAuthConfig, TenantSheetsConfig } from './types/tenantConfig';
 
 const SESSION_KEY = 'ehc-auth-user';
 const MAX_SESSION_MS = 8 * 60 * 60 * 1000; // 8-hour absolute max session
@@ -85,8 +84,8 @@ function App() {
 
   // Build tenant overrides from Supabase app_config (when available)
   const tenantOverrides: TenantOverrides | null = (() => {
-    const tenantAuth = tenantConfig.getConfig<TenantAuthConfig>('auth');
-    const tenantSheets = tenantConfig.getConfig<TenantSheetsConfig>('sheets');
+    const tenantAuth = tenantConfig.getConfig('auth');
+    const tenantSheets = tenantConfig.getConfig('sheets');
     if (!tenantAuth && !tenantSheets) return null;
     return {
       ...(tenantAuth ? { auth: tenantAuth } : {}),
@@ -96,7 +95,7 @@ function App() {
 
   // Resolve branding from tenant config (falls back to DEFAULT_BRANDING)
   const brandingConfig = parseBrandingConfig(
-    tenantConfig.getConfig<Record<string, unknown>>('branding'),
+    tenantConfig.getConfig('branding'),
   );
 
   // Load auth config + client ID on mount (try remote first, fall back to local)

@@ -9,9 +9,9 @@ vi.mock('../utils/supabaseClient', () => ({
   getDeviceId: vi.fn(() => 'device-test-123'),
 }));
 
-const mockAcquire = vi.fn<[string, string], Promise<boolean>>();
-const mockRelease = vi.fn<[string, string], Promise<void>>();
-const mockGetInfo = vi.fn<[string], Promise<{ lockedBy: string; lockedAt: string; lockDeviceId: string } | null>>();
+const mockAcquire = vi.fn<(draftId: string, userId: string) => Promise<boolean>>();
+const mockRelease = vi.fn<(draftId: string, userId: string) => Promise<void>>();
+const mockGetInfo = vi.fn<(draftId: string) => Promise<{ lockedBy: string; lockedAt: string; lockDeviceId: string } | null>>();
 
 vi.mock('../utils/supabaseDrafts', () => ({
   acquireDraftLock: (...args: [string, string]) => mockAcquire(...args),

@@ -192,7 +192,7 @@ describe('googleAuth', () => {
 
     it('calls initTokenClient with correct config', async () => {
       const mockTokenClient = setupGoogleGlobal();
-      const g = (globalThis as { google: typeof google }).google;
+      const g = (globalThis as unknown as { google: typeof google }).google;
 
       // Make initTokenClient capture the callback and call it with success
       vi.mocked(g.accounts.oauth2.initTokenClient).mockImplementation((config) => {
@@ -218,7 +218,7 @@ describe('googleAuth', () => {
 
     it('rejects when token response has error', async () => {
       const mockTokenClient = setupGoogleGlobal();
-      const g = (globalThis as { google: typeof google }).google;
+      const g = (globalThis as unknown as { google: typeof google }).google;
 
       vi.mocked(g.accounts.oauth2.initTokenClient).mockImplementation((config) => {
         setTimeout(() => {
@@ -248,7 +248,7 @@ describe('googleAuth', () => {
 
     it('calls google.accounts.oauth2.revoke', async () => {
       setupGoogleGlobal();
-      const g = (globalThis as { google: typeof google }).google;
+      const g = (globalThis as unknown as { google: typeof google }).google;
 
       await revokeAccessToken('my-token');
       expect(g.accounts.oauth2.revoke).toHaveBeenCalledWith('my-token', expect.any(Function));
@@ -271,7 +271,7 @@ describe('googleAuth', () => {
 
     it('initializes google.accounts.id and renders button', () => {
       setupGoogleGlobal();
-      const g = (globalThis as { google: typeof google }).google;
+      const g = (globalThis as unknown as { google: typeof google }).google;
       const onSuccess = vi.fn();
       const onError = vi.fn();
       const element = document.createElement('div');
@@ -298,7 +298,7 @@ describe('googleAuth', () => {
 
     it('calls disableAutoSelect when GSI is loaded', () => {
       setupGoogleGlobal();
-      const g = (globalThis as { google: typeof google }).google;
+      const g = (globalThis as unknown as { google: typeof google }).google;
 
       googleSignOut();
       expect(g.accounts.id.disableAutoSelect).toHaveBeenCalledTimes(1);

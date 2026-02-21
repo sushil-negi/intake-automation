@@ -40,7 +40,7 @@ export function getDefaultTenantConfig(type: 'auth'): TenantAuthConfig;
 export function getDefaultTenantConfig(type: 'sheets'): TenantSheetsConfig;
 export function getDefaultTenantConfig(type: 'email'): TenantEmailConfig;
 export function getDefaultTenantConfig(type: string): Record<string, unknown>;
-export function getDefaultTenantConfig(type: string): Record<string, unknown> {
+export function getDefaultTenantConfig(type: string): TenantAuthConfig | TenantSheetsConfig | TenantEmailConfig | Record<string, unknown> {
   switch (type) {
     case 'auth':
       return { ...DEFAULT_TENANT_AUTH, allowedEmails: [...DEFAULT_TENANT_AUTH.allowedEmails] };

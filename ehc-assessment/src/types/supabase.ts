@@ -5,19 +5,26 @@
  * for type-safe queries.  In a mature setup these would be generated
  * via `supabase gen types typescript`, but we hand-maintain them here
  * to avoid a build-time dependency on the Supabase CLI.
+ *
+ * IMPORTANT: @supabase/supabase-js v2.97+ requires Database['public'] to
+ * satisfy `GenericSchema` = { Tables, Views, Functions }.  Each table's
+ * Row / Insert / Update must satisfy `Record<string, unknown>`.  TypeScript
+ * interfaces do NOT have implicit index signatures in strict mode, so we
+ * use `type` aliases (not `interface`) for all Row/Insert/Update shapes.
+ * This ensures compatibility across all TS strictness levels.
  */
 
 // ── Row types (what SELECT returns) ─────────────────────────────────────────
 
-export interface OrganizationRow {
+export type OrganizationRow = {
   id: string;
   name: string;
   slug: string;
   is_active: boolean;
   created_at: string;
-}
+};
 
-export interface ProfileRow {
+export type ProfileRow = {
   id: string;          // matches auth.users.id
   email: string;
   full_name: string;
@@ -26,9 +33,9 @@ export interface ProfileRow {
   role: 'super_admin' | 'admin' | 'staff';
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface DraftRow {
+export type DraftRow = {
   id: string;
   org_id: string;
   client_name: string;
@@ -45,9 +52,9 @@ export interface DraftRow {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface AuditLogRow {
+export type AuditLogRow = {
   id: number;
   org_id: string;
   user_email: string;
@@ -58,20 +65,20 @@ export interface AuditLogRow {
   device_id: string | null;
   ip_address: string | null;
   created_at: string;
-}
+};
 
-export interface AppConfigRow {
+export type AppConfigRow = {
   id: string;
   org_id: string;
   config_type: 'auth' | 'sheets' | 'email' | 'branding';
   config_data: Record<string, unknown>;
   updated_by: string | null;
   updated_at: string;
-}
+};
 
 // ── Insert types (what INSERT expects) ──────────────────────────────────────
 
-export interface DraftInsert {
+export type DraftInsert = {
   id?: string;
   org_id: string;
   client_name: string;
@@ -82,18 +89,18 @@ export interface DraftInsert {
   form_data: Record<string, unknown>;
   created_by: string;
   updated_by?: string | null;
-}
+};
 
-export interface DraftUpdate {
+export type DraftUpdate = {
   client_name?: string;
   status?: 'draft' | 'submitted';
   current_step?: number;
   linked_assessment_id?: string | null;
   form_data?: Record<string, unknown>;
   updated_by?: string | null;
-}
+};
 
-export interface AuditLogInsert {
+export type AuditLogInsert = {
   org_id: string;
   user_email: string;
   action: string;
@@ -101,15 +108,18 @@ export interface AuditLogInsert {
   details?: string | null;
   status?: 'success' | 'failure' | 'info';
   device_id?: string | null;
-}
+};
 
 // ── Supabase Database type map (for createClient<Database>) ────────────────
 //
-// IMPORTANT: The `public` schema must satisfy @supabase/supabase-js's
-// `GenericSchema` shape, which requires `Tables`, `Views`, and `Functions`.
-// Missing `Views` causes all table operations to resolve to `never`.
+// The `public` schema must satisfy @supabase/supabase-js's `GenericSchema`:
+//   { Tables: Record<string, GenericTable>; Views: Record<string, GenericView>; Functions: Record<string, GenericFunction> }
+// where GenericTable = { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: ... }
+//
+// Using `type` aliases (not `interface`) ensures all Row/Insert/Update types
+// carry an implicit index signature and satisfy Record<string, unknown>.
 
-export interface Database {
+export type Database = {
   public: {
     Tables: {
       organizations: {
@@ -133,7 +143,7 @@ export interface Database {
       audit_logs: {
         Row: AuditLogRow;
         Insert: AuditLogInsert;
-        Update: never;
+        Update: Record<string, unknown>;  // audit logs are append-only
         Relationships: [];
       };
       app_config: {
@@ -173,4 +183,4 @@ export interface Database {
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
-}
+};

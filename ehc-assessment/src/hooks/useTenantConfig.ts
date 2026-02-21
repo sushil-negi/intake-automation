@@ -118,6 +118,7 @@ export function useTenantConfig(orgId: string | null): UseTenantConfigReturn {
           org_id: orgId,
           config_type: type,
           config_data: data as Record<string, unknown>,
+          updated_by: null,
         });
 
       if (insertError) {

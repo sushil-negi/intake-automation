@@ -47,7 +47,7 @@ export function useSupabaseDrafts({
   const [error, setError] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
 
-  const channelRef = useRef<ReturnType<ReturnType<typeof getSupabaseClient>['channel']> | null>(null);
+  const channelRef = useRef<ReturnType<NonNullable<ReturnType<typeof getSupabaseClient>>['channel']> | null>(null);
   const configured = isSupabaseConfigured();
   const active = configured && enabled && !!orgId;
 

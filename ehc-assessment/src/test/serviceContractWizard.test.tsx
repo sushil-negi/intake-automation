@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import 'fake-indexeddb/auto';
 
 // ── Mock surfaces ────────────────────────────────────────────────────────────
@@ -15,7 +15,7 @@ import 'fake-indexeddb/auto';
 const mockUpdateData = vi.fn();
 const mockClearDraft = vi.fn();
 let mockAutoSaveReturn = {
-  data: {} as Record<string, unknown>,
+  data: {} as any,
   updateData: mockUpdateData,
   lastSaved: null as string | null,
   isSaving: false,
@@ -302,7 +302,7 @@ describe('ServiceContractWizard', () => {
       // The consumer name propagation effect should not update when fullName is empty
       // Only the rep name effect should run
       const silentCalls = mockUpdateData.mock.calls.filter(
-        (call: unknown[]) => typeof call[0] === 'function' && call[1]?.silent === true,
+        (call: unknown[]) => typeof call[0] === 'function' && (call[1] as any)?.silent === true,
       );
 
       // All silent calls should be the rep name population, not consumer name propagation
@@ -325,7 +325,7 @@ describe('ServiceContractWizard', () => {
 
       // Should propagate "Bob" (filter empty parts)
       const silentCalls = mockUpdateData.mock.calls.filter(
-        (call: unknown[]) => call[1]?.silent === true,
+        (call: unknown[]) => (call[1] as any)?.silent === true,
       );
       expect(silentCalls.length).toBeGreaterThan(0);
     });
@@ -361,7 +361,7 @@ describe('ServiceContractWizard', () => {
       render(<ServiceContractWizard {...defaultProps} authUserName="Jane Doe" />);
 
       const fnCalls = mockUpdateData.mock.calls.filter(
-        (call: unknown[]) => typeof call[0] === 'function' && call[1]?.silent === true,
+        (call: unknown[]) => typeof call[0] === 'function' && (call[1] as any)?.silent === true,
       );
 
       for (const call of fnCalls) {
@@ -379,7 +379,7 @@ describe('ServiceContractWizard', () => {
       render(<ServiceContractWizard {...defaultProps} authUserName={undefined} />);
 
       const fnCalls = mockUpdateData.mock.calls.filter(
-        (call: unknown[]) => typeof call[0] === 'function' && call[1]?.silent === true,
+        (call: unknown[]) => typeof call[0] === 'function' && (call[1] as any)?.silent === true,
       );
 
       for (const call of fnCalls) {

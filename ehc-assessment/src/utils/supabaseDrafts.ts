@@ -23,7 +23,7 @@ export function rowToDraftRecord(row: DraftRow): DraftRecord {
     id: row.id,
     clientName: row.client_name,
     type: row.type as DraftType,
-    data: row.form_data as DraftRecord['data'],
+    data: row.form_data as unknown as DraftRecord['data'],
     lastModified: row.updated_at,
     status: row.status,
     currentStep: row.current_step,
@@ -46,7 +46,7 @@ export function draftRecordToInsert(
     status: draft.status,
     current_step: draft.currentStep ?? 0,
     linked_assessment_id: draft.linkedAssessmentId ?? null,
-    form_data: draft.data as Record<string, unknown>,
+    form_data: draft.data as unknown as Record<string, unknown>,
     created_by: userId,
     updated_by: userId,
   };
@@ -62,7 +62,7 @@ export function draftRecordToUpdate(
     status: draft.status,
     current_step: draft.currentStep ?? 0,
     linked_assessment_id: draft.linkedAssessmentId ?? null,
-    form_data: draft.data as Record<string, unknown>,
+    form_data: draft.data as unknown as Record<string, unknown>,
     updated_by: userId,
   };
 }

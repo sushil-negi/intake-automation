@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import 'fake-indexeddb/auto';
 
 // ── Mock surfaces ────────────────────────────────────────────────────────────
@@ -430,7 +430,7 @@ describe('AssessmentWizard', () => {
 
       // The updater should return prev unchanged when all fields already filled
       const fnCalls = mockUpdateData.mock.calls.filter(
-        (call: unknown[]) => typeof call[0] === 'function' && call[1]?.silent === true,
+        (call: unknown[]) => typeof call[0] === 'function' && (call[1] as any)?.silent === true,
       );
 
       if (fnCalls.length > 0) {
@@ -455,7 +455,7 @@ describe('AssessmentWizard', () => {
 
       // Check that no staff name updater with silent flag was called
       const fnCalls = mockUpdateData.mock.calls.filter(
-        (call: unknown[]) => typeof call[0] === 'function' && call[1]?.silent === true,
+        (call: unknown[]) => typeof call[0] === 'function' && (call[1] as any)?.silent === true,
       );
 
       // Staff name effect should not set anything when authUserName is empty

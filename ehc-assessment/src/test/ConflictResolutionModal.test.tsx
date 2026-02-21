@@ -3,9 +3,9 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { ConflictResolutionModal } from '../components/ui/ConflictResolutionModal';
 
 describe('ConflictResolutionModal', () => {
-  let onKeepMine: ReturnType<typeof vi.fn>;
-  let onUseTheirs: ReturnType<typeof vi.fn>;
-  let onCancel: ReturnType<typeof vi.fn>;
+  let onKeepMine: () => void;
+  let onUseTheirs: () => void;
+  let onCancel: () => void;
 
   beforeEach(() => {
     cleanup();

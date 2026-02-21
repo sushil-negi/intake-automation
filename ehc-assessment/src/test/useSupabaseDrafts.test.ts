@@ -11,7 +11,7 @@ vi.mock('../utils/supabaseClient', () => ({
   getDeviceId: vi.fn(() => 'device-test-123'),
 }));
 
-const mockFetchRemoteDrafts = vi.fn<[], Promise<DraftRow[]>>();
+const mockFetchRemoteDrafts = vi.fn<() => Promise<DraftRow[]>>();
 
 vi.mock('../utils/supabaseDrafts', () => ({
   fetchRemoteDrafts: () => mockFetchRemoteDrafts(),

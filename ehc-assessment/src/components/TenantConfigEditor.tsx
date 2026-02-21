@@ -40,13 +40,13 @@ export function TenantConfigEditor({ tenantConfig, userRole, isSuperAdmin }: Ten
   useEffect(() => {
     if (tenantConfig.loading) return;
 
-    const auth = tenantConfig.getConfig<TenantAuthConfig>('auth');
+    const auth = tenantConfig.getConfig('auth');
     if (auth) setAuthData(auth);
 
-    const sheets = tenantConfig.getConfig<TenantSheetsConfig>('sheets');
+    const sheets = tenantConfig.getConfig('sheets');
     if (sheets) setSheetsData(sheets);
 
-    const email = tenantConfig.getConfig<TenantEmailConfig>('email');
+    const email = tenantConfig.getConfig('email');
     if (email) setEmailData(email);
   }, [tenantConfig.loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
